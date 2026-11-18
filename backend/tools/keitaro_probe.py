@@ -249,8 +249,8 @@ class KeitaroProbe:
             probe_stream_id,
             [self.stream_offer(share=100)],
         )
-        # Keitaro normalises the unused action_payload of a landings stream from null to "" on
-        # any save (docs/decisions.md, В3); file 16 keeps the raw diff as evidence.
+        # Keitaro turns the unused action_payload of a landings stream from null into "" when the
+        # stream is saved (docs/decisions.md, В3); file 16 keeps the raw diff as evidence.
         unexpected_changes = {
             field: values
             for field, values in offers_only.changes.items()
@@ -385,11 +385,20 @@ class KeitaroProbe:
 
     def put_offers(self, name: str, title: str, stream_id: int, offers: list[dict]) -> PutResult:
         path = f"/streams/{stream_id}"
-        before = self.call("GET", path).response_body
+        before_read = self.call("GET", path)
         put = self.call("PUT", path, body={"offers": offers})
-        after = self.call("GET", path).response_body
+        after_read = self.call("GET", path)
+        before, after = before_read.response_body, after_read.response_body
         changes = {}
-        if isinstance(before, dict) and isinstance(after, dict):
+        unreadable = [
+            f"GET {moment} PUT: HTTP {read.status}"
+            for moment, read in (("before", before_read), ("after", after_read))
+            if not read.ok or not isinstance(read.response_body, dict)
+        ]
+        if unreadable:
+            # Without both snapshots the PUT cannot be judged; empty changes would pass as success.
+            self.stop_conditions.append(f"{name}: stream unreadable ({'; '.join(unreadable)})")
+        else:
             changes = changed_fields(before, after, ignore=STREAM_FIELDS_ALLOWED_TO_CHANGE)
         self.record(
             name,
@@ -439,14 +448,18 @@ class KeitaroProbe:
             },
         )
 
-    def is_archived(self, kind: str, identifier: int) -> bool:
+    def archive_status(self, kind: str, identifier: int) -> tuple[bool, str]:
+        """Whether Keitaro shows our object as archived, plus its answer for the final check."""
         try:
             exchange = self.call("GET", f"/{kind}/{identifier}")
-        except httpx.HTTPError:
-            return False
+        except httpx.HTTPError as error:
+            # Unknown counts as live: cleanup then tries to archive it once more.
+            return False, type(error).__name__
         body = exchange.response_body
         state = body.get("state") if isinstance(body, dict) else None
-        return exchange.status == 404 or (exchange.ok and state == "deleted")
+        # An archived campaign answers 404, an archived stream stays readable (files 21, 22).
+        archived = exchange.status == 404 or (exchange.ok and state == "deleted")
+        return archived, f"status={exchange.status} state={state}"
 
     def cleanup(self) -> bool:
         """Archives whatever this run created and Keitaro still shows as live; True if all clean."""
@@ -454,12 +467,12 @@ class KeitaroProbe:
             campaign_ids=[
                 identifier
                 for identifier in self.created.campaign_ids
-                if not self.is_archived("campaigns", identifier)
+                if not self.archive_status("campaigns", identifier)[0]
             ],
             stream_ids=[
                 identifier
                 for identifier in self.created.stream_ids
-                if not self.is_archived("streams", identifier)
+                if not self.archive_status("streams", identifier)[0]
             ],
         )
         print(
@@ -476,16 +489,9 @@ class KeitaroProbe:
             ("campaigns", self.created.campaign_ids),
         ):
             for identifier in identifiers:
-                try:
-                    exchange = self.call("GET", f"/{kind}/{identifier}")
-                except httpx.HTTPError as error:
-                    print(f"final check: {kind}/{identifier} {type(error).__name__}")
-                    all_archived = False
-                    continue
-                body = exchange.response_body
-                state = body.get("state") if isinstance(body, dict) else None
-                print(f"final check: {kind}/{identifier} status={exchange.status} state={state}")
-                all_archived &= exchange.status == 404 or state == "deleted"
+                archived, answer = self.archive_status(kind, identifier)
+                print(f"final check: {kind}/{identifier} {answer}")
+                all_archived &= archived
         return not errors and all_archived
 
 
