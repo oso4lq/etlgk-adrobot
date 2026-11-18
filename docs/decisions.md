@@ -95,3 +95,41 @@ Starlette помечает `TestClient` поверх `httpx` устаревши�
 
 ### Build-скрипты pnpm запрещены
 Angular CLI сгенерировал `allowBuilds: false` для esbuild и др. в `frontend/pnpm-workspace.yaml`. Оставлено как есть: нативные бинарники приходят через optionalDependencies, сборка, тесты и dev-сервер работают, а запрет postinstall-скриптов безопаснее.
+
+## 2026-11-18 — этап 1 (клиент и разведка)
+
+### Разведка реального Keitaro
+Примеры — `docs/keitaro-examples/` (оглавление в `README.md` там же), получены одним запуском `python -m tools.keitaro_probe --confirm-writes`. Созданные кампания `test_oso4lq_put_check` и три потока перенесены в архив; кампания видна в `GET /campaigns/deleted` со `state: deleted`, потоки — `state: deleted`.
+
+### В1. Тела создания
+Тела 10, 12, 13, 14 приняты как есть (200). Keitaro сам подставил: кампании — `token`, `position` 9999, `cookies_ttl` 24, `cost_type` CPC, `cost_currency` USD, `uniqueness_method` ip, `bind_visitors` null, `postbacks` [], а также `domain` (`https://kylovoa.com/`) и `group` (имя) по id (10); потокам — `offer_selection` before_click, пустые `landings` и `triggers`, у фильтров и строк офферов — свои `id` и `stream_id`, у фильтров ещё `oid` (12–14). Ответ `POST /streams` короче, чем `GET /streams/{id}`: `action_options`, `action_payload` (у потока с офферами), `collect_clicks`, `filter_or`, `weight` видны только через GET (16, `stream_before`).
+
+### В2. Занятый alias
+`422 {"alias": ["Alias has already used"]}`, дубль не создаётся (11). На этапе 2 конфликт alias распознаётся по статусу 422 и ключу `alias` в теле.
+
+### В3. PUT только с `offers`
+Фильтры, `comments`, позиция, тип, схема, `action_type`, состояние и прочие поля не меняются; единственное отличие — `action_payload` `null` → `""` (16, `changed_fields`; ответ самого PUT ещё показывает `null`, следующий GET — `""`). Повторные PUT (17–19) кроме офферов ничего не меняют. Это нормализация Keitaro неиспользуемого поля потока `landings` при любом сохранении, включая админку, а не изменение поведения потока: 69 из 100 потоков `landings` на инстансе уже хранят `""`, `null` — только у созданных через API и ни разу не сохранённых (выборка по 120 кампаниям, только чтение; так же Flow 2 в 22, `campaign_streams_after`).
+Решение: Push шлёт только `{"offers": [...]}`. Условие остановки разведки для 16 считает `null` и `""` в `action_payload` одинаковыми; сырой `changed_fields` в файле 16 оставлен как доказательство.
+Этап 3: при сверке потока после Push считать `null` и `""` в `action_payload` одинаковыми.
+
+### В4. Замена списка офферов
+PUT заменяет список целиком: `offers: []` убирает все офферы (18). Строка оффера сохраняет id, пока оффер остаётся в списке (16, 17 — тот же id, меняется только `share`); после удаления и повторного добавления создаётся новая строка с новым id (19). Сопоставлять офферы при синхронизации — по `offer_id`, не по id строки.
+
+### В5. `share: 0`
+Принимается: 200, оффер остаётся `active` с `share` 0 (17).
+
+### В6. Пустой `offers`
+Принимается: 200, у потока не остаётся офферов (18). Push потока без активных офферов возможен.
+
+### В7. Удаление
+- `DELETE /streams/{id}` → 200 с пустым телом; поток после этого читается, `state: deleted` (21).
+- `DELETE /campaigns/{id}` → 200, тело — массив из одной кампании со `state: deleted`; `GET /campaigns/{id}` после этого → 404 (HTML nginx) (22).
+- Потоки кампании при этом **не** архивируются: остаются `active` и видны через `GET /campaigns/{id}/streams` (22, `country_flow_after`, `campaign_streams_after`). Компенсация на этапе 2 архивирует потоки явно, до кампании.
+
+### Расхождения `docs/keitaro-openapi.json` с реальностью
+- `DELETE /campaigns/{id}`: в спецификации 201 и объект Domain, на деле 200 и массив кампаний (22).
+- `DELETE /streams/{id}`: в спецификации объект Stream, на деле пустое тело (21).
+- Несуществующий id: 404 с HTML nginx, а не JSON `Error` (06, 22).
+- Занятый alias: 422, в спецификации у `POST /campaigns` такого кода нет (11).
+- У потока нет `updated_at`, есть `created_at` (16).
+- `group_id` кампании в спецификации запроса — строка; число принимается (10).

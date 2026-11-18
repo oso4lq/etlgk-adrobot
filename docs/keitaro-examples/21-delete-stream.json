@@ -1,0 +1,61 @@
+{
+  "title": "Удаление (архивирование) потока",
+  "request": {
+    "method": "DELETE",
+    "path": "/streams/1323896",
+    "query": {},
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "body": ""
+  },
+  "observations": {
+    "stream_after": {
+      "status": 200,
+      "body": {
+        "id": 1323896,
+        "type": "regular",
+        "name": "Probe",
+        "campaign_id": 214805,
+        "position": 3,
+        "action_options": null,
+        "comments": "probe",
+        "state": "deleted",
+        "created_at": "2026-11-18 22:40:01",
+        "action_type": "http",
+        "action_payload": "",
+        "schema": "landings",
+        "collect_clicks": true,
+        "filter_or": false,
+        "weight": 0,
+        "offer_selection": "before_click",
+        "filters": [
+          {
+            "id": 2985000,
+            "stream_id": 1323896,
+            "name": "country",
+            "mode": "reject",
+            "payload": [
+              "FR"
+            ],
+            "oid": 2985000
+          }
+        ],
+        "triggers": [],
+        "landings": [],
+        "offers": [
+          {
+            "id": 2077597,
+            "stream_id": 1323896,
+            "offer_id": 18813,
+            "state": "active",
+            "share": 100,
+            "created_at": "2026-11-18 22:40:03",
+            "updated_at": "2026-11-18 22:40:03"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "title": "Группы кампаний (оставлена только наша группа)",
+  "request": {
+    "method": "GET",
+    "path": "/groups",
+    "query": {
+      "type": "campaigns"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "body": [
+      {
+        "id": 10332,
+        "name": "FORTESTS",
+        "position": 9452,
+        "type": "campaigns"
+      }
+    ]
+  },
+  "observations": {}
+}

@@ -1,0 +1,16 @@
+{
+  "title": "GET /offers с неверным ключом API",
+  "request": {
+    "method": "GET",
+    "path": "/offers",
+    "query": {},
+    "body": null
+  },
+  "response": {
+    "status": 401,
+    "body": {
+      "error": "Invalid API key"
+    }
+  },
+  "observations": {}
+}

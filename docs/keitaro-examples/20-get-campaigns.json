@@ -1,0 +1,47 @@
+{
+  "title": "Список кампаний (оставлена только наша кампания)",
+  "request": {
+    "method": "GET",
+    "path": "/campaigns",
+    "query": {},
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "body": [
+      {
+        "id": 214805,
+        "alias": "jwcmja",
+        "name": "test_oso4lq_put_check",
+        "type": "position",
+        "uniqueness_method": "ip",
+        "cookies_ttl": 24,
+        "position": 9999,
+        "state": "active",
+        "updated_at": "2026-11-18 22:39:57",
+        "cost_type": "CPC",
+        "cost_value": 0,
+        "cost_currency": "USD",
+        "group_id": 10332,
+        "bind_visitors": "",
+        "traffic_source_id": 836,
+        "token": "***",
+        "cost_auto": false,
+        "domain_id": 1813,
+        "notes": null,
+        "parameters": {},
+        "uniqueness_use_cookies": true,
+        "traffic_loss": 0,
+        "bypass_cache": false,
+        "created_at": "2026-11-18 22:39:57",
+        "uniqueness_param": null,
+        "domain": "https://kylovoa.com/",
+        "postbacks": [],
+        "group": "FORTESTS"
+      }
+    ]
+  },
+  "observations": {
+    "total_count": 416
+  }
+}

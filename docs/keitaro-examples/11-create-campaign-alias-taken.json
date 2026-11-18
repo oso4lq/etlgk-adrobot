@@ -1,0 +1,26 @@
+{
+  "title": "Создание кампании с уже занятым alias",
+  "request": {
+    "method": "POST",
+    "path": "/campaigns",
+    "query": {},
+    "body": {
+      "name": "test_oso4lq_alias_conflict",
+      "alias": "jwcmja",
+      "type": "position",
+      "state": "active",
+      "domain_id": 1813,
+      "group_id": 10332,
+      "traffic_source_id": 836
+    }
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "alias": [
+        "Alias has already used"
+      ]
+    }
+  },
+  "observations": {}
+}

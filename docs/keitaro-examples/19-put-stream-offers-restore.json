@@ -1,0 +1,143 @@
+{
+  "title": "PUT потока: возврат оффера",
+  "request": {
+    "method": "PUT",
+    "path": "/streams/1323896",
+    "query": {},
+    "body": {
+      "offers": [
+        {
+          "offer_id": 18813,
+          "share": 100,
+          "state": "active"
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": 1323896,
+      "type": "regular",
+      "name": "Probe",
+      "campaign_id": 214805,
+      "position": 3,
+      "action_options": null,
+      "comments": "probe",
+      "state": "active",
+      "created_at": "2026-11-18 22:40:01",
+      "action_type": "http",
+      "action_payload": "",
+      "schema": "landings",
+      "collect_clicks": true,
+      "filter_or": false,
+      "weight": 0,
+      "offer_selection": "before_click",
+      "offers": [
+        {
+          "id": 2077597,
+          "stream_id": 1323896,
+          "offer_id": 18813,
+          "state": "active",
+          "share": 100,
+          "created_at": "2026-11-18 22:40:03",
+          "updated_at": "2026-11-18 22:40:03"
+        }
+      ],
+      "unread_events_count": 0,
+      "filters": [
+        {
+          "id": 2985000,
+          "stream_id": 1323896,
+          "name": "country",
+          "mode": "reject",
+          "payload": [
+            "FR"
+          ],
+          "oid": 2985000
+        }
+      ],
+      "triggers": [],
+      "landings": []
+    }
+  },
+  "observations": {
+    "stream_before": {
+      "id": 1323896,
+      "type": "regular",
+      "name": "Probe",
+      "campaign_id": 214805,
+      "position": 3,
+      "action_options": null,
+      "comments": "probe",
+      "state": "active",
+      "created_at": "2026-11-18 22:40:01",
+      "action_type": "http",
+      "action_payload": "",
+      "schema": "landings",
+      "collect_clicks": true,
+      "filter_or": false,
+      "weight": 0,
+      "offer_selection": "before_click",
+      "filters": [
+        {
+          "id": 2985000,
+          "stream_id": 1323896,
+          "name": "country",
+          "mode": "reject",
+          "payload": [
+            "FR"
+          ],
+          "oid": 2985000
+        }
+      ],
+      "triggers": [],
+      "landings": [],
+      "offers": []
+    },
+    "stream_after": {
+      "id": 1323896,
+      "type": "regular",
+      "name": "Probe",
+      "campaign_id": 214805,
+      "position": 3,
+      "action_options": null,
+      "comments": "probe",
+      "state": "active",
+      "created_at": "2026-11-18 22:40:01",
+      "action_type": "http",
+      "action_payload": "",
+      "schema": "landings",
+      "collect_clicks": true,
+      "filter_or": false,
+      "weight": 0,
+      "offer_selection": "before_click",
+      "filters": [
+        {
+          "id": 2985000,
+          "stream_id": 1323896,
+          "name": "country",
+          "mode": "reject",
+          "payload": [
+            "FR"
+          ],
+          "oid": 2985000
+        }
+      ],
+      "triggers": [],
+      "landings": [],
+      "offers": [
+        {
+          "id": 2077597,
+          "stream_id": 1323896,
+          "offer_id": 18813,
+          "state": "active",
+          "share": 100,
+          "created_at": "2026-11-18 22:40:03",
+          "updated_at": "2026-11-18 22:40:03"
+        }
+      ]
+    },
+    "changed_fields": {}
+  }
+}

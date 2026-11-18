@@ -1,0 +1,156 @@
+{
+  "title": "Удаление (архивирование) кампании с живыми потоками",
+  "request": {
+    "method": "DELETE",
+    "path": "/campaigns/214805",
+    "query": {},
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "body": [
+      {
+        "id": 214805,
+        "alias": "jwcmja",
+        "name": "test_oso4lq_put_check",
+        "type": "position",
+        "uniqueness_method": "ip",
+        "cookies_ttl": 24,
+        "position": 9999,
+        "state": "deleted",
+        "updated_at": "2026-11-18 22:40:06",
+        "cost_type": "CPC",
+        "cost_value": 0,
+        "cost_currency": "USD",
+        "group_id": 10332,
+        "bind_visitors": "",
+        "traffic_source_id": 836,
+        "token": "***",
+        "cost_auto": false,
+        "domain_id": 1813,
+        "notes": null,
+        "parameters": {},
+        "uniqueness_use_cookies": true,
+        "traffic_loss": 0,
+        "bypass_cache": false,
+        "created_at": "2026-11-18 22:39:57",
+        "uniqueness_param": null,
+        "domain": "https://kylovoa.com/",
+        "postbacks": [],
+        "group": "FORTESTS"
+      }
+    ]
+  },
+  "observations": {
+    "campaign_after": {
+      "status": 404,
+      "body": "<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr>\n<center>nginx/1.24.0</center>\n</body>\n</html>\n"
+    },
+    "country_flow_after": {
+      "status": 200,
+      "body": {
+        "id": 1323894,
+        "type": "regular",
+        "name": "Flow 1",
+        "campaign_id": 214805,
+        "position": 1,
+        "action_options": null,
+        "comments": null,
+        "state": "active",
+        "created_at": "2026-11-18 22:40:00",
+        "action_type": "http",
+        "action_payload": "https://google.com",
+        "schema": "redirect",
+        "collect_clicks": true,
+        "filter_or": false,
+        "weight": 0,
+        "offer_selection": "before_click",
+        "filters": [
+          {
+            "id": 2984999,
+            "stream_id": 1323894,
+            "name": "country",
+            "mode": "accept",
+            "payload": [
+              "DE"
+            ],
+            "oid": 2984999
+          }
+        ],
+        "triggers": [],
+        "landings": [],
+        "offers": []
+      }
+    },
+    "campaign_streams_after": {
+      "status": 200,
+      "body": [
+        {
+          "id": 1323894,
+          "type": "regular",
+          "name": "Flow 1",
+          "campaign_id": 214805,
+          "position": 1,
+          "action_options": null,
+          "comments": null,
+          "state": "active",
+          "created_at": "2026-11-18 22:40:00",
+          "action_type": "http",
+          "action_payload": "https://google.com",
+          "schema": "redirect",
+          "collect_clicks": true,
+          "filter_or": false,
+          "weight": 0,
+          "offer_selection": "before_click",
+          "filters": [
+            {
+              "id": 2984999,
+              "stream_id": 1323894,
+              "name": "country",
+              "mode": "accept",
+              "payload": [
+                "DE"
+              ],
+              "oid": 2984999
+            }
+          ],
+          "triggers": [],
+          "landings": [],
+          "offers": []
+        },
+        {
+          "id": 1323895,
+          "type": "regular",
+          "name": "Flow 2",
+          "campaign_id": 214805,
+          "position": 2,
+          "action_options": null,
+          "comments": null,
+          "state": "active",
+          "created_at": "2026-11-18 22:40:01",
+          "action_type": "http",
+          "action_payload": null,
+          "schema": "landings",
+          "collect_clicks": true,
+          "filter_or": false,
+          "weight": 0,
+          "offer_selection": "before_click",
+          "filters": [],
+          "triggers": [],
+          "landings": [],
+          "offers": [
+            {
+              "id": 2077595,
+              "stream_id": 1323895,
+              "offer_id": 18813,
+              "state": "active",
+              "share": 100,
+              "created_at": "2026-11-18 22:40:01",
+              "updated_at": "2026-11-18 22:40:01"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

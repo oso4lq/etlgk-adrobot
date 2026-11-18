@@ -1,0 +1,76 @@
+{
+  "title": "Создание потока с фильтром, комментарием и оффером (для проверки PUT)",
+  "request": {
+    "method": "POST",
+    "path": "/streams",
+    "query": {},
+    "body": {
+      "campaign_id": 214805,
+      "name": "Probe",
+      "type": "regular",
+      "position": 3,
+      "schema": "landings",
+      "action_type": "http",
+      "offers": [
+        {
+          "offer_id": 18813,
+          "share": 100,
+          "state": "active"
+        }
+      ],
+      "state": "active",
+      "comments": "probe",
+      "filters": [
+        {
+          "name": "country",
+          "mode": "reject",
+          "payload": [
+            "FR"
+          ]
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "campaign_id": 214805,
+      "name": "Probe",
+      "type": "regular",
+      "position": 3,
+      "schema": "landings",
+      "action_type": "http",
+      "offers": [
+        {
+          "id": 2077596,
+          "stream_id": 1323896,
+          "offer_id": 18813,
+          "state": "active",
+          "share": 100,
+          "created_at": "2026-11-18 22:40:01",
+          "updated_at": "2026-11-18 22:40:01"
+        }
+      ],
+      "state": "active",
+      "comments": "probe",
+      "filters": [
+        {
+          "id": 2985000,
+          "stream_id": 1323896,
+          "name": "country",
+          "mode": "reject",
+          "payload": [
+            "FR"
+          ],
+          "oid": 2985000
+        }
+      ],
+      "offer_selection": "before_click",
+      "created_at": "2026-11-18 22:40:01",
+      "id": 1323896,
+      "triggers": [],
+      "landings": []
+    }
+  },
+  "observations": {}
+}
