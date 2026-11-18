@@ -1,6 +1,9 @@
+import io
+import sys
+
 from app.cli.recon import main, render_recon
 from app.core.config import Settings
-from app.keitaro.errors import KeitaroAuthError
+from app.keitaro.errors import KeitaroAuthError, KeitaroUnavailableError
 from app.keitaro.models import KeitaroDomain, KeitaroGroup, KeitaroOffer, KeitaroTrafficSource
 from app.keitaro.references import find_reference
 
@@ -97,3 +100,27 @@ def test_output_never_contains_api_key(make_settings, capsys):
     assert "test-secret-key-123" not in captured.out + captured.err
     assert "tracker.example.com" not in captured.out + captured.err
     assert client.closed
+
+
+def test_output_survives_non_utf8_redirect(make_settings, monkeypatch):
+    raw = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(raw, encoding="cp1251"))
+    code = main(
+        load_settings=lambda: make_settings(campaign_domain="kylovoa.com"),
+        build_client=lambda settings: FakeDictionaries(),
+    )
+    sys.stdout.flush()
+    assert code == 0
+    text = raw.getvalue().decode("utf-8")
+    assert "→" in text and "Домены" in text
+
+
+def test_main_reports_keitaro_error_raised_while_building_client(make_settings, capsys):
+    def failing_build(settings):
+        raise KeitaroUnavailableError("Keitaro недоступен: ошибка сети")
+
+    code = main(load_settings=make_settings, build_client=failing_build)
+    captured = capsys.readouterr()
+    assert code == 1
+    assert "Ошибка Keitaro: Keitaro недоступен: ошибка сети" in captured.err
+    assert "Traceback" not in captured.err

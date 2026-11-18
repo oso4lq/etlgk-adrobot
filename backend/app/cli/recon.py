@@ -78,7 +78,11 @@ def main(
         _report_configuration_error(error)
         return 2
 
-    client = build_client(settings)
+    try:
+        client = build_client(settings)
+    except KeitaroError as error:
+        print(f"Ошибка Keitaro: {error.message}", file=sys.stderr)
+        return 1
     try:
         text = render_recon(
             client,
