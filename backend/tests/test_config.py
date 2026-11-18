@@ -1,0 +1,48 @@
+import pytest
+from pydantic import ValidationError
+
+from app.core.config import (
+    BACKEND_DIR,
+    DEFAULT_DATABASE_URL,
+    ENV_FILE,
+    REPOSITORY_ROOT,
+    Settings,
+)
+
+
+def test_settings_require_keitaro_variables(monkeypatch):
+    monkeypatch.delenv("KEITARO_BASE_URL", raising=False)
+    monkeypatch.delenv("KEITARO_API_KEY", raising=False)
+    with pytest.raises(ValidationError) as error:
+        Settings(_env_file=None)
+    message = str(error.value)
+    assert "keitaro_base_url" in message
+    assert "keitaro_api_key" in message
+
+
+def test_api_key_is_hidden_in_repr(make_settings):
+    settings = make_settings()
+    assert "test-secret-key-123" not in repr(settings)
+    assert "test-secret-key-123" not in str(settings.model_dump())
+    assert settings.keitaro_api_key.get_secret_value() == "test-secret-key-123"
+
+
+def test_base_url_trailing_slash_is_stripped(make_settings):
+    assert make_settings().keitaro_base_url == "https://tracker.example.com"
+
+
+def test_defaults(make_settings):
+    settings = make_settings()
+    assert settings.redirect_url == "https://google.com"
+    assert settings.keitaro_write_name_prefix == ""
+    assert settings.cors_origins == ["http://localhost:4200"]
+
+
+def test_default_database_url_is_absolute_in_backend_dir():
+    expected = (BACKEND_DIR / "adrobot.db").resolve().as_posix()
+    assert f"sqlite:///{expected}" == DEFAULT_DATABASE_URL
+
+
+def test_env_file_is_repository_root():
+    assert ENV_FILE == REPOSITORY_ROOT / ".env"
+    assert (REPOSITORY_ROOT / "CLAUDE.md").exists()
