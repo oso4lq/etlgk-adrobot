@@ -38,3 +38,17 @@ class KeitaroNotFoundError(KeitaroError):
 class KeitaroRejectedError(KeitaroError):
     code = "keitaro_rejected"
     http_status = 422
+
+    def __init__(
+        self,
+        message: str,
+        keitaro_status: int | None = None,
+        field_names: frozenset[str] = frozenset(),
+    ) -> None:
+        super().__init__(message, keitaro_status)
+        # Fields Keitaro complained about; lets callers react without parsing the message text.
+        self.field_names = field_names
+
+
+class KeitaroAliasTakenError(KeitaroRejectedError):
+    """Campaign alias is already used by another campaign (Keitaro answers 422 with `alias`)."""

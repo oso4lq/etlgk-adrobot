@@ -1,6 +1,19 @@
+import json
+
 import pytest
 
 from app.core.config import Settings
+from tools.keitaro_examples import EXAMPLES_DIR
+
+
+@pytest.fixture
+def keitaro_example():
+    """Real Keitaro request/response pairs recorded by tools/keitaro_probe.py."""
+
+    def load(name: str) -> dict:
+        return json.loads((EXAMPLES_DIR / f"{name}.json").read_text(encoding="utf-8"))
+
+    return load
 
 
 @pytest.fixture

@@ -87,6 +87,23 @@ def test_field_errors_are_joined():
     assert "name: Field is required" in error.value.message
 
 
+@pytest.mark.parametrize("status", [406, 422])
+def test_field_errors_expose_field_names(status):
+    session = make_session(
+        lambda request: httpx.Response(status, json={"alias": ["Alias has already used"]})
+    )
+    with pytest.raises(KeitaroRejectedError) as error:
+        session.post("/campaigns", {})
+    assert error.value.field_names == frozenset({"alias"})
+
+
+def test_plain_error_body_has_no_field_names():
+    session = make_session(lambda request: httpx.Response(406, json={"error": "Nope"}))
+    with pytest.raises(KeitaroRejectedError) as error:
+        session.post("/campaigns", {})
+    assert error.value.field_names == frozenset()
+
+
 def test_html_error_body_is_not_echoed():
     html = "<html><head><title>404 Not Found</title></head></html>"
     session = make_session(

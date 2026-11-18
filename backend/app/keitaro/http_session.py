@@ -155,7 +155,18 @@ class KeitaroHttpSession:
             return KeitaroUnavailableError(f"Keitaro недоступен: HTTP {status}", status)
         text = self._extract_error_text(response)
         message = f"Keitaro отклонил запрос: {text}" if text else "Keitaro отклонил запрос"
-        return KeitaroRejectedError(message, status)
+        return KeitaroRejectedError(message, status, self._extract_field_names(response))
+
+    @staticmethod
+    def _extract_field_names(response: httpx.Response) -> frozenset[str]:
+        """Field names of a {"field": ["message", ...]} error body; empty for other shapes."""
+        try:
+            payload = response.json()
+        except ValueError:
+            return frozenset()
+        if not isinstance(payload, dict):
+            return frozenset()
+        return frozenset(field for field, messages in payload.items() if isinstance(messages, list))
 
     def _extract_error_text(self, response: httpx.Response) -> str:
         try:
