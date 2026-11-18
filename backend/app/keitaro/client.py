@@ -1,10 +1,15 @@
+import logging
 from collections.abc import Sequence
 from typing import Any, Protocol
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 
 from app.core.config import Settings
-from app.keitaro.errors import KeitaroAliasTakenError, KeitaroRejectedError
+from app.keitaro.errors import (
+    KeitaroAliasTakenError,
+    KeitaroRejectedError,
+    KeitaroUnavailableError,
+)
 from app.keitaro.http_session import KeitaroHttpSession
 from app.keitaro.models import (
     KeitaroCampaign,
@@ -18,6 +23,8 @@ from app.keitaro.models import (
     NewOffersStream,
     StreamOfferShare,
 )
+
+logger = logging.getLogger("app.keitaro")
 
 
 class KeitaroClient(Protocol):
@@ -48,6 +55,8 @@ _GROUPS = TypeAdapter(list[KeitaroGroup])
 _TRAFFIC_SOURCES = TypeAdapter(list[KeitaroTrafficSource])
 _CAMPAIGNS = TypeAdapter(list[KeitaroCampaign])
 _STREAMS = TypeAdapter(list[KeitaroStream])
+_CAMPAIGN = TypeAdapter(KeitaroCampaign)
+_STREAM = TypeAdapter(KeitaroStream)
 
 
 # Request bodies below are exactly the ones Keitaro accepted during recon
@@ -97,6 +106,19 @@ def _offers_stream_body(stream: NewOffersStream) -> dict[str, Any]:
     }
 
 
+def _parse[T](adapter: TypeAdapter[T], payload: Any) -> T:
+    """Validates a Keitaro body; a body that does not fit our models is a Keitaro-side failure."""
+    try:
+        return adapter.validate_python(payload)
+    except ValidationError as error:
+        # Only field paths are logged: input values may hold foreign data or the tracker host.
+        locations = ", ".join(
+            ".".join(str(part) for part in item["loc"]) for item in error.errors()
+        )
+        logger.warning("Keitaro response does not fit the model: %s", locations)
+        raise KeitaroUnavailableError("Keitaro недоступен: некорректный ответ") from None
+
+
 class KeitaroHttpClient:
     def __init__(self, session: KeitaroHttpSession) -> None:
         self._session = session
@@ -115,28 +137,28 @@ class KeitaroHttpClient:
         self._session.close()
 
     def list_offers(self) -> list[KeitaroOffer]:
-        return _OFFERS.validate_python(self._session.get("/offers"))
+        return _parse(_OFFERS, self._session.get("/offers"))
 
     def list_domains(self) -> list[KeitaroDomain]:
-        return _DOMAINS.validate_python(self._session.get("/domains"))
+        return _parse(_DOMAINS, self._session.get("/domains"))
 
     def list_campaign_groups(self) -> list[KeitaroGroup]:
-        return _GROUPS.validate_python(self._session.get("/groups", {"type": "campaigns"}))
+        return _parse(_GROUPS, self._session.get("/groups", {"type": "campaigns"}))
 
     def list_traffic_sources(self) -> list[KeitaroTrafficSource]:
-        return _TRAFFIC_SOURCES.validate_python(self._session.get("/traffic_sources"))
+        return _parse(_TRAFFIC_SOURCES, self._session.get("/traffic_sources"))
 
     def list_campaigns(self) -> list[KeitaroCampaign]:
-        return _CAMPAIGNS.validate_python(self._session.get("/campaigns"))
+        return _parse(_CAMPAIGNS, self._session.get("/campaigns"))
 
     def get_campaign(self, campaign_id: int) -> KeitaroCampaign:
-        return KeitaroCampaign.model_validate(self._session.get(f"/campaigns/{campaign_id}"))
+        return _parse(_CAMPAIGN, self._session.get(f"/campaigns/{campaign_id}"))
 
     def get_campaign_streams(self, campaign_id: int) -> list[KeitaroStream]:
-        return _STREAMS.validate_python(self._session.get(f"/campaigns/{campaign_id}/streams"))
+        return _parse(_STREAMS, self._session.get(f"/campaigns/{campaign_id}/streams"))
 
     def get_stream(self, stream_id: int) -> KeitaroStream:
-        return KeitaroStream.model_validate(self._session.get(f"/streams/{stream_id}"))
+        return _parse(_STREAM, self._session.get(f"/streams/{stream_id}"))
 
     def create_campaign(self, campaign: NewCampaign) -> KeitaroCampaign:
         try:
@@ -147,22 +169,22 @@ class KeitaroHttpClient:
                     error.message, error.keitaro_status, error.field_names
                 ) from None
             raise
-        return KeitaroCampaign.model_validate(created)
+        return _parse(_CAMPAIGN, created)
 
     def create_country_redirect_stream(self, stream: NewCountryRedirectStream) -> KeitaroStream:
         created = self._session.post("/streams", _country_redirect_stream_body(stream))
-        return KeitaroStream.model_validate(created)
+        return _parse(_STREAM, created)
 
     def create_offers_stream(self, stream: NewOffersStream) -> KeitaroStream:
         created = self._session.post("/streams", _offers_stream_body(stream))
-        return KeitaroStream.model_validate(created)
+        return _parse(_STREAM, created)
 
     def replace_stream_offers(
         self, stream_id: int, offers: Sequence[StreamOfferShare]
     ) -> KeitaroStream:
         # Only `offers` is sent: PUT then leaves every other stream setting untouched (В3).
         updated = self._session.put(f"/streams/{stream_id}", {"offers": _offer_bodies(offers)})
-        return KeitaroStream.model_validate(updated)
+        return _parse(_STREAM, updated)
 
     def archive_stream(self, stream_id: int) -> None:
         self._session.delete(f"/streams/{stream_id}")

@@ -236,3 +236,9 @@ def test_non_transport_request_error_is_reported_as_unavailable():
     assert len(attempts) == 1
     assert error.value.message == "Keitaro недоступен: ошибка сети"
     assert "tracker.example.com" not in error.value.message
+
+
+def test_http_libraries_are_clamped_to_warning():
+    # They log the request URL and the connect host, which is the tracker address.
+    assert logging.getLogger("httpx").level >= logging.WARNING
+    assert logging.getLogger("httpcore").level >= logging.WARNING

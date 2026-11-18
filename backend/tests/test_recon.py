@@ -39,6 +39,7 @@ def test_find_reference_by_id_and_by_name():
     assert find_reference(groups, " FORTESTS ").id == 10332
     assert find_reference(groups, "fortests") is None
     assert find_reference(groups, "999") is None
+    assert find_reference(groups, "  ") is None
 
 
 def test_render_lists_dictionaries_and_resolves_configuration():

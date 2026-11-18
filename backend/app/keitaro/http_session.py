@@ -20,6 +20,8 @@ logger = logging.getLogger("app.keitaro")
 
 # httpx logs every request URL at INFO, which would put the tracker address into logs.
 logging.getLogger("httpx").setLevel(logging.WARNING)
+# httpcore logs the connect host and TLS server name at DEBUG, i.e. the tracker address too.
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # Only a failed connection guarantees that Keitaro has not seen a write request yet.
 _CONNECTION_FAILURES = (httpx.ConnectError, httpx.ConnectTimeout)

@@ -4,7 +4,11 @@ import httpx
 import pytest
 
 from app.keitaro.client import KeitaroHttpClient
-from app.keitaro.errors import KeitaroAliasTakenError, KeitaroRejectedError
+from app.keitaro.errors import (
+    KeitaroAliasTakenError,
+    KeitaroRejectedError,
+    KeitaroUnavailableError,
+)
 from app.keitaro.http_session import KeitaroHttpSession
 from app.keitaro.models import (
     KeitaroCampaign,
@@ -147,7 +151,18 @@ def test_replace_stream_offers_with_empty_list(keitaro_example):
 
 def test_archive_stream_and_campaign_use_delete(keitaro_example):
     sent = []
-    replay(keitaro_example("21-delete-stream"), sent).archive_stream(21)
+    # Example 21 recorded a truly empty body, not a JSON string.
+    empty_body_session = KeitaroHttpSession(
+        "https://tracker.example.com",
+        "test-key",
+        timeout_seconds=5,
+        max_retries=0,
+        retry_delay_seconds=0,
+        transport=httpx.MockTransport(
+            lambda request: sent.append(request) or httpx.Response(200, content=b"")
+        ),
+    )
+    KeitaroHttpClient(empty_body_session).archive_stream(21)
     replay(keitaro_example("22-delete-campaign"), sent).archive_campaign(10)
     assert [(request.method, request.url.path) for request in sent] == [
         ("DELETE", "/admin_api/v1/streams/21"),
@@ -201,3 +216,32 @@ def test_list_campaigns_parses_real_example(keitaro_example):
     example = keitaro_example("20-get-campaigns")
     campaigns = replay(example, []).list_campaigns()
     assert campaigns[0].domain == example["response"]["body"][0]["domain"]
+
+
+UNAVAILABLE_MESSAGE = "Keitaro недоступен: некорректный ответ"
+
+
+def test_empty_body_is_reported_as_unavailable():
+    session = KeitaroHttpSession(
+        "https://tracker.example.com",
+        "test-key",
+        timeout_seconds=5,
+        max_retries=0,
+        retry_delay_seconds=0,
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, content=b"")),
+    )
+    with pytest.raises(KeitaroUnavailableError, match=UNAVAILABLE_MESSAGE):
+        KeitaroHttpClient(session).list_offers()
+
+
+def test_unexpected_stream_shape_is_reported_as_unavailable():
+    client = client_answering(200, [{"id": 1, "name": None}], [])
+    with pytest.raises(KeitaroUnavailableError, match=UNAVAILABLE_MESSAGE):
+        client.get_campaign_streams(10)
+
+
+def test_unparseable_create_response_is_reported_as_unavailable():
+    client = client_answering(200, {"unexpected": True}, [])
+    campaign = NewCampaign(name="x", alias="a", domain_id=1, group_id=2, traffic_source_id=3)
+    with pytest.raises(KeitaroUnavailableError, match=UNAVAILABLE_MESSAGE):
+        client.create_campaign(campaign)

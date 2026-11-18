@@ -13,6 +13,8 @@ class _HasIdAndName(Protocol):
 def find_reference[T: _HasIdAndName](items: Sequence[T], configured: str) -> T | None:
     """Resolves a configured dictionary entry: digits mean id, anything else an exact name."""
     value = configured.strip()
+    if not value:
+        return None
     if value.isdecimal():
         wanted_id = int(value)
         for item in items:
