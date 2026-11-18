@@ -39,7 +39,7 @@
 ### 3.1. Технологии (из `CLAUDE.md`)
 - Бэкенд: Python, FastAPI, SQLAlchemy 2.x, Alembic, Pydantic v2, httpx, pytest. Локально Python 3.14; целимся в `>=3.12`.
 - БД: SQLite по умолчанию, строка подключения в конфиге (`DATABASE_URL`), чтобы подставить Postgres.
-- Фронтенд: актуальный Angular (20+), standalone, signals, новый control flow, strict TS, pnpm. Локально Node 22.13 — подходит.
+- Фронтенд: актуальный Angular (20+), standalone, signals, новый control flow, strict TS, pnpm. Используется Angular 22, ему нужен Node ≥ 22.22.3 или ≥ 24.15 (локально — 24.16.0 через nvm, см. `frontend/.nvmrc`; поправлено на этапе 0).
 - Правила кода и шаблонов — раздел 8 `CLAUDE.md` (обязательны).
 
 ### 3.2. Факты о Keitaro (проверены 2026-11-18)

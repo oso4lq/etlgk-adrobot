@@ -6,6 +6,7 @@ from app.core.config import (
     DEFAULT_DATABASE_URL,
     ENV_FILE,
     REPOSITORY_ROOT,
+    DatabaseSettings,
     Settings,
 )
 
@@ -18,6 +19,35 @@ def test_settings_require_keitaro_variables(monkeypatch):
     message = str(error.value)
     assert "keitaro_base_url" in message
     assert "keitaro_api_key" in message
+
+
+def test_missing_variable_error_does_not_echo_secrets(monkeypatch, tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "KEITARO_API_KEY=test-secret-key-123\nKEITARO_ADMIN_PASSWORD=admin-password-456\n",
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("KEITARO_BASE_URL", raising=False)
+    monkeypatch.delenv("KEITARO_API_KEY", raising=False)
+    with pytest.raises(ValidationError) as error:
+        Settings(_env_file=env_file)
+    message = str(error.value)
+    assert "keitaro_base_url" in message
+    assert "test-secret-key-123" not in message
+    assert "admin-password-456" not in message
+
+
+def test_empty_required_variable_is_treated_as_missing(monkeypatch):
+    monkeypatch.setenv("KEITARO_BASE_URL", "https://tracker.example.com")
+    monkeypatch.setenv("KEITARO_API_KEY", "")
+    with pytest.raises(ValidationError) as error:
+        Settings(_env_file=None)
+    assert "keitaro_api_key" in str(error.value)
+
+
+def test_empty_database_url_falls_back_to_default(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "")
+    assert DatabaseSettings(_env_file=None).database_url == DEFAULT_DATABASE_URL
 
 
 def test_api_key_is_hidden_in_repr(make_settings):

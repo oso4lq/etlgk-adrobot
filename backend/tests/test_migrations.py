@@ -7,7 +7,7 @@ from app.core.config import BACKEND_DIR, DEFAULT_DATABASE_URL, DatabaseSettings
 
 def alembic_config(database_url: str) -> Config:
     config = Config(str(BACKEND_DIR / "alembic.ini"))
-    config.set_main_option("sqlalchemy.url", database_url)
+    config.attributes["database_url"] = database_url
     return config
 
 
@@ -35,6 +35,16 @@ def test_migrations_upgrade_and_downgrade(tmp_path):
     assert current_revision(url) is None
 
     command.upgrade(alembic_config(url), "head")
+    assert current_revision(url) == "0001"
+
+
+def test_migrations_accept_percent_in_database_url(tmp_path, monkeypatch):
+    # Percent-encoded passwords (postgresql://user:p%40ss@...) must not break Alembic's config.
+    folder = tmp_path / "100%"
+    folder.mkdir()
+    url = f"sqlite:///{(folder / 'migrations.db').as_posix()}"
+    monkeypatch.setenv("DATABASE_URL", url)
+    command.upgrade(Config(str(BACKEND_DIR / "alembic.ini")), "head")
     assert current_revision(url) == "0001"
 
 

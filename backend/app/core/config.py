@@ -15,7 +15,15 @@ DEFAULT_DATABASE_URL = f"sqlite:///{(BACKEND_DIR / 'adrobot.db').resolve().as_po
 class DatabaseSettings(BaseSettings):
     """Only what migrations need: Alembic must work without Keitaro credentials."""
 
-    model_config = SettingsConfigDict(env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILE,
+        env_file_encoding="utf-8",
+        extra="ignore",
+        # Validation errors would otherwise echo every value from .env, secrets included.
+        hide_input_in_errors=True,
+        # "KEY=" means "not set": a required key fails loudly, an optional one keeps its default.
+        env_ignore_empty=True,
+    )
 
     database_url: str = DEFAULT_DATABASE_URL
 
