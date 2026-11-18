@@ -91,7 +91,7 @@ class KeitaroHttpSession:
         while True:
             try:
                 response = self._client.request(method, path, **kwargs)
-            except httpx.TransportError as exc:
+            except httpx.RequestError as exc:
                 reason = "таймаут" if isinstance(exc, httpx.TimeoutException) else "ошибка сети"
                 if attempts_left > 0 and self._may_retry_failure(method, exc):
                     attempts_left -= 1
@@ -116,7 +116,10 @@ class KeitaroHttpSession:
             raise error
 
     @staticmethod
-    def _may_retry_failure(method: str, exc: httpx.TransportError) -> bool:
+    def _may_retry_failure(method: str, exc: httpx.RequestError) -> bool:
+        # Errors that are not transport failures (decoding, redirect loops) will repeat as is.
+        if not isinstance(exc, httpx.TransportError):
+            return False
         if method in _MUTATING_METHODS:
             return isinstance(exc, _CONNECTION_FAILURES)
         return True
@@ -128,9 +131,15 @@ class KeitaroHttpSession:
     @staticmethod
     def _parse_success(response: httpx.Response) -> Any:
         # Keitaro answers some successful calls (DELETE /streams/{id}) with an empty body.
-        if not response.content:
+        if not response.content.strip():
             return None
-        return response.json()
+        try:
+            return response.json()
+        except ValueError:
+            # Usually a proxy or captive page in front of Keitaro; the body is not echoed.
+            raise KeitaroUnavailableError(
+                "Keitaro недоступен: некорректный ответ", response.status_code
+            ) from None
 
     def _build_error(self, response: httpx.Response) -> KeitaroError:
         status = response.status_code

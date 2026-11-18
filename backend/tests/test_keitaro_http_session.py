@@ -196,3 +196,26 @@ def test_from_settings_uses_configured_retries(make_settings):
     with pytest.raises(KeitaroUnavailableError):
         session.get("/offers")
     assert len(attempts) == 1
+
+
+def test_non_json_success_body_is_reported_as_unavailable():
+    html = "<html><body>captive portal</body></html>"
+    session = make_session(lambda request: httpx.Response(200, text=html))
+    with pytest.raises(KeitaroUnavailableError) as error:
+        session.get("/offers")
+    assert "<html" not in error.value.message
+    assert error.value.message == "Keitaro недоступен: некорректный ответ"
+    assert error.value.keitaro_status == 200
+
+
+def test_whitespace_success_body_returns_none():
+    assert make_session(lambda request: httpx.Response(200, content=b"\n")).get("/offers") is None
+
+
+def test_non_transport_request_error_is_reported_as_unavailable():
+    handler, attempts = counting([httpx.TooManyRedirects("loop at tracker.example.com")])
+    with pytest.raises(KeitaroUnavailableError) as error:
+        make_session(handler, max_retries=2).get("/offers")
+    assert len(attempts) == 1
+    assert error.value.message == "Keitaro недоступен: ошибка сети"
+    assert "tracker.example.com" not in error.value.message
