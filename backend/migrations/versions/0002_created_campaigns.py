@@ -11,8 +11,6 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-from app.db.models import UtcDateTime
-
 revision: str = "0002"
 down_revision: str | Sequence[str] | None = "0001"
 branch_labels: str | Sequence[str] | None = None
@@ -33,8 +31,8 @@ def upgrade() -> None:
         sa.Column("offers_stream_id", sa.Integer(), nullable=True),
         sa.Column("campaign_url", sa.String(length=1024), nullable=True),
         sa.Column("error", sa.Text(), nullable=True),
-        sa.Column("created_at", UtcDateTime(), nullable=False),
-        sa.Column("updated_at", UtcDateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_created_campaigns")),
     )
 
