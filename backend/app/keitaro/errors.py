@@ -1,4 +1,7 @@
-class KeitaroError(Exception):
+from app.core.errors import AppError
+
+
+class KeitaroError(AppError):
     """Base class for failures of talking to Keitaro; carries what our API returns to the user."""
 
     code: str = "keitaro_error"
@@ -6,7 +9,6 @@ class KeitaroError(Exception):
 
     def __init__(self, message: str, keitaro_status: int | None = None) -> None:
         super().__init__(message)
-        self.message = message
         self.keitaro_status = keitaro_status
 
 
