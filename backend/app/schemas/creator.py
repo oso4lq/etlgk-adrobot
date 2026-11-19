@@ -1,10 +1,11 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CampaignCreateRequest(BaseModel):
-    name: str
+    # 255 is the size of the journal column.
+    name: str = Field(max_length=255)
     country: str
     offer_id: int
 

@@ -17,6 +17,15 @@ def register_error_handlers(app: FastAPI) -> None:
             content={"code": exc.code, "message": exc.message},
         )
 
+    @app.exception_handler(Exception)
+    def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+        # Fixed text: the exception may contain anything, including the tracker address.
+        # ServerErrorMiddleware still re-raises, so the server logs the traceback.
+        return JSONResponse(
+            status_code=500,
+            content={"code": "internal_error", "message": "внутренняя ошибка"},
+        )
+
     @app.exception_handler(RequestValidationError)
     def handle_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
         # Input values are left out of the message: they may contain anything.
@@ -25,10 +34,14 @@ def register_error_handlers(app: FastAPI) -> None:
             location = list(error["loc"])
             if location and location[0] in _LOCATION_SOURCES:
                 location = location[1:]
-            field = ".".join(str(part) for part in location)
+            # Integer parts are positions (a list item, a character offset in broken JSON).
+            field = ".".join(part for part in location if isinstance(part, str))
             if field and field not in fields:
                 fields.append(field)
-        message = "Некорректный запрос: неверные или отсутствующие поля " + ", ".join(fields)
+        if fields:
+            message = "Некорректный запрос: неверные или отсутствующие поля " + ", ".join(fields)
+        else:
+            message = "Некорректный запрос: тело запроса не разобрано"
         return JSONResponse(
             status_code=422, content={"code": "invalid_request", "message": message}
         )

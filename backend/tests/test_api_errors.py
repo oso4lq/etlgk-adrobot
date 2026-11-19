@@ -54,3 +54,17 @@ def test_create_app_keeps_http_library_logs_clamped(make_settings):
     create_app(make_settings())
     assert logging.getLogger("httpx").level == logging.WARNING
     assert logging.getLogger("httpcore").level == logging.WARNING
+
+
+def test_unexpected_exception_becomes_json_without_details(make_settings):
+    app = create_app(make_settings())
+
+    @app.get("/api/test-boom")
+    def raise_error():
+        raise RuntimeError("boom")
+
+    response = TestClient(app, raise_server_exceptions=False).get("/api/test-boom")
+
+    assert response.status_code == 500
+    assert response.json() == {"code": "internal_error", "message": "внутренняя ошибка"}
+    assert "boom" not in response.text
