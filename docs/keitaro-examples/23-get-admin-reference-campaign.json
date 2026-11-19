@@ -1,0 +1,151 @@
+{
+  "title": "Эталон test_oso4lq_reference, собранный руками в админке (2026-11-19): кампания и потоки через API",
+  "request": {
+    "method": "GET",
+    "path": "/campaigns/215193",
+    "query": {},
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "id": 215193,
+      "alias": "h9yP6F",
+      "name": "test_oso4lq_reference",
+      "type": "position",
+      "uniqueness_method": "ip_ua",
+      "cookies_ttl": 24,
+      "position": 9999,
+      "state": "active",
+      "updated_at": "2026-11-19 08:59:08",
+      "cost_type": "CPC",
+      "cost_value": 0,
+      "cost_currency": "USD",
+      "group_id": 10332,
+      "bind_visitors": "",
+      "traffic_source_id": 836,
+      "token": "***",
+      "cost_auto": true,
+      "domain_id": 1813,
+      "notes": "",
+      "parameters": {},
+      "uniqueness_use_cookies": true,
+      "traffic_loss": 0,
+      "bypass_cache": false,
+      "created_at": "2026-11-19 08:56:52",
+      "uniqueness_param": "",
+      "domain": "https://kylovoa.com/",
+      "postbacks": [],
+      "group": "FORTESTS"
+    }
+  },
+  "observations": {
+    "streams": [
+      {
+        "id": 1325500,
+        "type": "regular",
+        "name": "Flow 1",
+        "campaign_id": 215193,
+        "position": 1,
+        "action_options": null,
+        "comments": "",
+        "state": "active",
+        "created_at": "2026-11-19 08:59:08",
+        "action_type": "http",
+        "action_payload": "https://google.com",
+        "schema": "redirect",
+        "collect_clicks": true,
+        "filter_or": false,
+        "weight": 100,
+        "offer_selection": "before_click",
+        "filters": [
+          {
+            "id": 2987466,
+            "stream_id": 1325500,
+            "name": "country",
+            "mode": "accept",
+            "payload": [
+              "DE"
+            ],
+            "oid": 2987466
+          }
+        ],
+        "triggers": [],
+        "landings": [],
+        "offers": []
+      },
+      {
+        "id": 1325501,
+        "type": "regular",
+        "name": "Flow 2",
+        "campaign_id": 215193,
+        "position": 2,
+        "action_options": null,
+        "comments": "",
+        "state": "active",
+        "created_at": "2026-11-19 08:59:08",
+        "action_type": "http",
+        "action_payload": null,
+        "schema": "landings",
+        "collect_clicks": true,
+        "filter_or": false,
+        "weight": 100,
+        "offer_selection": "before_click",
+        "filters": [],
+        "triggers": [],
+        "landings": [],
+        "offers": [
+          {
+            "id": 2079543,
+            "stream_id": 1325501,
+            "offer_id": 18813,
+            "state": "active",
+            "share": 100,
+            "created_at": "2026-11-19 08:59:08",
+            "updated_at": "2026-11-19 08:59:08"
+          }
+        ]
+      }
+    ],
+    "differs_from_api_created_10_12_13": {
+      "campaign": {
+        "uniqueness_method": {
+          "admin": "ip_ua",
+          "api": "ip"
+        },
+        "cost_auto": {
+          "admin": true,
+          "api": false
+        },
+        "notes": {
+          "admin": "",
+          "api": null
+        },
+        "uniqueness_param": {
+          "admin": "",
+          "api": null
+        }
+      },
+      "Flow 1": {
+        "weight": {
+          "admin": 100,
+          "api": 0
+        },
+        "comments": {
+          "admin": "",
+          "api": null
+        }
+      },
+      "Flow 2": {
+        "weight": {
+          "admin": 100,
+          "api": 0
+        },
+        "comments": {
+          "admin": "",
+          "api": null
+        }
+      }
+    }
+  }
+}
