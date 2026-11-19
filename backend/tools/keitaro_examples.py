@@ -36,11 +36,24 @@ def keep_only_ids(items: list[dict], allowed_ids: set[int]) -> list[dict]:
 
 
 def redact_fields(items: list[dict], fields: Collection[str]) -> list[dict]:
-    """Hides values that name other users' objects inside an object we are allowed to commit."""
+    """Hides other people's data inside an object we are allowed to commit.
+
+    Only text is masked: the example must still show the real shape and types of the answer.
+    """
     return [
-        {key: "***" if key in fields and value else value for key, value in item.items()}
+        {key: _mask_text(value) if key in fields else value for key, value in item.items()}
         for item in items
     ]
+
+
+def _mask_text(value: Any) -> Any:
+    if isinstance(value, str):
+        return "***" if value else value
+    if isinstance(value, list):
+        return [_mask_text(element) for element in value]
+    if isinstance(value, dict):
+        return {key: _mask_text(element) for key, element in value.items()}
+    return value
 
 
 def changed_fields(before: dict, after: dict, ignore: set[str]) -> dict[str, tuple[Any, Any]]:

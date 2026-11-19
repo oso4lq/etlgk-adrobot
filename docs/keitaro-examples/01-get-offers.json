@@ -1,5 +1,5 @@
 {
-  "title": "Список офферов (оставлен только наш оффер)",
+  "title": "Список офферов (оставлен только наш оффер, данные владельца скрыты)",
   "request": {
     "method": "GET",
     "path": "/offers",
@@ -11,11 +11,11 @@
     "body": [
       {
         "id": 18813,
-        "name": "18813 Flexacil [JOINT-PE] [vsl es -] ReactJs v4",
+        "name": "***",
         "group_id": 7183,
         "action_payload": "",
         "country": [
-          "Peru"
+          "***"
         ],
         "affiliate_network_id": 59,
         "payout_value": 0,
@@ -30,7 +30,7 @@
         "offer_type": "local",
         "action_type": "local_file",
         "action_options": {
-          "folder": "ultravix_1779464479"
+          "folder": "***"
         },
         "conversion_cap_enabled": false,
         "daily_cap": 0,
@@ -38,10 +38,10 @@
         "alternative_offer_id": 0,
         "values": "",
         "payout_conversion_type_ids": null,
-        "affiliate_network": "59",
-        "group": "GAK JO Flexacil PE",
-        "local_path": "/lander/ultravix_1779464479/",
-        "preview_path": "/lander/ultravix_1779464479/_preview.png?176063862",
+        "affiliate_network": "***",
+        "group": "***",
+        "local_path": "***",
+        "preview_path": "***",
         "payout_statuses": []
       }
     ]

@@ -40,8 +40,19 @@ NON_JSON_BODY_LIMIT = 300
 SHOWN_BODY_LIMIT = 1000
 # A PUT with only "offers" is expected to change nothing but the offers and the timestamp.
 STREAM_FIELDS_ALLOWED_TO_CHANGE = {"updated_at", "offers"}
-# Our domain is shared: its default campaign belongs to another user.
-DOMAIN_FOREIGN_FIELDS = {"default_campaign"}
+# Our domain is shared: its default campaign and its group belong to other users.
+DOMAIN_FOREIGN_FIELDS = {"default_campaign", "group"}
+# The offer is the instance owner's product: its name, targeting and lander location are their
+# business data, not something a public repository should carry. Ids and the shape stay.
+OFFER_OWNER_FIELDS = {
+    "name",
+    "group",
+    "country",
+    "affiliate_network",
+    "action_options",
+    "local_path",
+    "preview_path",
+}
 
 
 class ProbeAborted(Exception):
@@ -288,9 +299,10 @@ class KeitaroProbe:
         ours = keep_only_ids(self.require_list(exchange), {PROBE_OFFER_ID})
         if not ours:
             raise ProbeAborted(f"Offer {PROBE_OFFER_ID} is not visible through the API")
+        ours = redact_fields(ours, OFFER_OWNER_FIELDS)
         self.record(
             "01-get-offers",
-            "Список офферов (оставлен только наш оффер)",
+            "Список офферов (оставлен только наш оффер, данные владельца скрыты)",
             replace(exchange, response_body=ours),
         )
 

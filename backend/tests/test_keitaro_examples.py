@@ -45,6 +45,25 @@ def test_redact_fields_hides_only_listed_non_empty_values():
     ]
 
 
+def test_redact_fields_masks_text_inside_nested_values_keeping_shape():
+    items = [
+        {
+            "id": 1,
+            "action_options": {"folder": "owner_folder", "retries": 3},
+            "country": ["Atlantis"],
+            "group_id": 7,
+        }
+    ]
+    assert redact_fields(items, {"action_options", "country", "group_id"}) == [
+        {
+            "id": 1,
+            "action_options": {"folder": "***", "retries": 3},
+            "country": ["***"],
+            "group_id": 7,
+        }
+    ]
+
+
 def test_changed_fields_ignores_listed_keys():
     before = {"name": "Probe", "filters": [1], "updated_at": "a", "offers": []}
     after = {"name": "Probe", "filters": [], "updated_at": "b", "offers": [1]}
