@@ -13,6 +13,7 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
+import httpx
 from pydantic import ValidationError
 
 from app.cli.recon import _report_configuration_error, _use_utf8_output
@@ -105,9 +106,11 @@ def _record(
     candidate: tuple[dict, list[dict]],
     differences: list[str],
 ) -> None:
+    # The bare host is replaced too: it shows up without a scheme in payloads and comments.
     replacements = {
         settings.keitaro_api_key.get_secret_value(): SECRET_PLACEHOLDER,
         settings.keitaro_base_url.rstrip("/"): f"https://{TRACKER_PLACEHOLDER}",
+        httpx.URL(settings.keitaro_base_url).host: TRACKER_PLACEHOLDER,
     }
     example = sanitize(
         {

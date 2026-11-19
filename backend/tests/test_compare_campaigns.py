@@ -185,3 +185,22 @@ def test_main_reports_configuration_error_by_names_only(capsys):
     error_output = capsys.readouterr().err
     assert "Ошибка конфигурации" in error_output
     assert "secret-xyz" not in error_output
+
+
+def test_main_record_hides_bare_tracker_host(tmp_path, make_settings, monkeypatch, keitaro_example):
+    reference = keitaro_example("23-get-admin-reference-campaign")
+    campaign = reference["response"]["body"]
+    streams = [dict(stream) for stream in reference["observations"]["streams"]]
+    streams[0]["action_payload"] = "http://secret-tracker.test/x"
+    streams[1]["comments"] = "see secret-tracker.test/path"
+    monkeypatch.setattr(compare_module, "EXAMPLES_DIR", tmp_path)
+
+    main(
+        ["1", "2", "--record", "recorded"],
+        load_settings=lambda: make_settings(keitaro_base_url="https://secret-tracker.test/"),
+        build_session=_session_builder({1: campaign, 2: campaign}, streams, []),
+    )
+
+    text = (tmp_path / "recorded.json").read_text(encoding="utf-8")
+    assert "secret-tracker.test" not in text
+    assert "http://tracker.example.com/x" in text
