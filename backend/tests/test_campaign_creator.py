@@ -1,8 +1,10 @@
 import pytest
+from sqlalchemy.orm import Session
 
 from app.db.models import CreationStatus
 from app.keitaro.errors import KeitaroAliasTakenError, KeitaroUnavailableError
 from app.keitaro.models import StreamOfferShare
+from app.repositories.created_campaigns import CreatedCampaignsRepository
 from app.services.campaign_creator import (
     CampaignCreator,
     CampaignRequest,
@@ -172,12 +174,16 @@ def test_campaign_url_falls_back_to_configured_domain(creator, fake, journal):
     assert entry.campaign_url == "https://kylovoa.com/alias1"
 
 
-def test_journal_entry_is_pending_before_first_write(creator, fake, journal):
+def test_journal_entry_is_pending_before_first_write(creator, fake, journal, db_session):
     seen = []
     original = fake.create_campaign
 
     def spying_create_campaign(campaign):
-        seen.append([row.status for row in journal.list_recent()])
+        # A second session sees only committed rows.
+        with Session(db_session.get_bind()) as other_session:
+            seen.append(
+                [row.status for row in CreatedCampaignsRepository(other_session).list_recent()]
+            )
         return original(campaign)
 
     fake.create_campaign = spying_create_campaign

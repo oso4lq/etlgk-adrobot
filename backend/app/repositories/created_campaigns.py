@@ -22,13 +22,21 @@ class CreatedCampaignsRepository:
             updated_at=now,
         )
         self._session.add(entry)
-        self._session.commit()
+        self._commit()
         return entry
 
     def save(self, entry: CreatedCampaign) -> None:
         entry.updated_at = datetime.now(UTC)
         self._session.add(entry)
-        self._session.commit()
+        self._commit()
+
+    def _commit(self) -> None:
+        try:
+            self._session.commit()
+        except Exception:
+            # Without rollback the session stays unusable for the next journal write.
+            self._session.rollback()
+            raise
 
     def list_recent(self, limit: int = 100) -> list[CreatedCampaign]:
         query = select(CreatedCampaign).order_by(CreatedCampaign.id.desc()).limit(limit)

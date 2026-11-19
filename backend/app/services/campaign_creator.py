@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -18,6 +19,8 @@ from app.keitaro.models import (
 from app.repositories.created_campaigns import CreatedCampaignsRepository
 from app.services.creator_references import CreatorReferenceResolver, CreatorReferences
 from app.services.offer_catalog import OfferCatalog
+
+logger = logging.getLogger("app.creator")
 
 MAX_ALIAS_ATTEMPTS = 3
 COUNTRY_STREAM_NAME = "Flow 1"
@@ -93,6 +96,23 @@ class _Cause:
         return cls(INTERNAL_ERROR_MESSAGE, INTERNAL_ERROR_CODE, INTERNAL_ERROR_HTTP_STATUS)
 
 
+@dataclass
+class _Progress:
+    """What Keitaro has created so far, kept apart from the journal.
+
+    A journal write can fail right after Keitaro answered; compensation must still know what exists.
+    """
+
+    alias: str | None = None
+    campaign_id: int | None = None
+    country_stream_id: int | None = None
+    offers_stream_id: int | None = None
+
+    def stream_ids(self) -> set[int]:
+        known = (self.country_stream_id, self.offers_stream_id)
+        return {stream_id for stream_id in known if stream_id is not None}
+
+
 class CampaignCreator:
     def __init__(
         self,
@@ -127,10 +147,9 @@ class CampaignCreator:
         # Everything above is read-only: a rejected request leaves no trace in Keitaro or journal.
         entry = journal.add_pending(name, country.code, request.offer_id)
 
-        campaign_id: int | None = None
+        progress = _Progress()
         try:
-            campaign = self._create_campaign(name, references, entry, journal)
-            campaign_id = campaign.id
+            campaign = self._create_campaign(name, references, entry, journal, progress)
             country_stream = self._client.create_country_redirect_stream(
                 NewCountryRedirectStream(
                     campaign_id=campaign.id,
@@ -140,6 +159,7 @@ class CampaignCreator:
                     redirect_url=self._settings.redirect_url,
                 )
             )
+            progress.country_stream_id = country_stream.id
             # Saved after every step so a crash leaves the ids needed for manual cleanup.
             entry.country_stream_id = country_stream.id
             journal.save(entry)
@@ -151,21 +171,36 @@ class CampaignCreator:
                     offers=(StreamOfferShare(request.offer_id, FULL_SHARE),),
                 )
             )
+            progress.offers_stream_id = offers_stream.id
             entry.offers_stream_id = offers_stream.id
+            journal.save(entry)
+
+            base = campaign.domain or f"https://{references.domain_name}"
+            entry.campaign_url = f"{base.rstrip('/')}/{entry.alias}"
+            entry.status = CreationStatus.CREATED
+            # Inside the try: a campaign we cannot record must not stay in Keitaro (spec §5).
             journal.save(entry)
         except CampaignCreationFailedError:
             # Already compensated and written to the journal by the campaign step.
             raise
         except Exception as error:
+            # A failed save rolls the session back, which discards unsaved entry fields.
+            entry.alias = progress.alias or entry.alias
+            entry.keitaro_campaign_id = progress.campaign_id or entry.keitaro_campaign_id
+            entry.country_stream_id = progress.country_stream_id or entry.country_stream_id
+            entry.offers_stream_id = progress.offers_stream_id or entry.offers_stream_id
+            entry.campaign_url = None
             raise self._compensate_and_fail(
-                entry, journal, _Cause.of(error), campaign_id, self._known_stream_ids(entry)
+                entry, journal, self._describe(error), progress.campaign_id, progress.stream_ids()
             ) from error
-
-        base = campaign.domain or f"https://{references.domain_name}"
-        entry.campaign_url = f"{base.rstrip('/')}/{entry.alias}"
-        entry.status = CreationStatus.CREATED
-        journal.save(entry)
         return entry
+
+    @staticmethod
+    def _describe(error: Exception) -> _Cause:
+        if not isinstance(error, AppError):
+            # Keitaro failures are logged by the HTTP session; this is a bug or a database error.
+            logger.exception("Unexpected error while creating a campaign", exc_info=error)
+        return _Cause.of(error)
 
     def _create_campaign(
         self,
@@ -173,6 +208,7 @@ class CampaignCreator:
         references: CreatorReferences,
         entry: CreatedCampaign,
         journal: CreatedCampaignsRepository,
+        progress: _Progress,
     ) -> KeitaroCampaign:
         attempt = 0
         while True:
@@ -206,16 +242,19 @@ class CampaignCreator:
             except KeitaroUnavailableError as error:
                 # The POST may have been executed with the response lost on the way back.
                 raise self._fail_unconfirmed_campaign(
-                    entry, journal, alias, _Cause.of(error)
+                    entry, journal, name, alias, _Cause.of(error)
                 ) from error
+            progress.alias = alias
+            progress.campaign_id = campaign.id
             entry.alias = alias
             entry.keitaro_campaign_id = campaign.id
             journal.save(entry)
             return campaign
 
-    def _find_campaign_by_alias(self, alias: str) -> KeitaroCampaign | None:
+    def _find_our_campaign(self, name: str, alias: str) -> KeitaroCampaign | None:
         for campaign in self._client.list_campaigns():
-            if campaign.alias == alias:
+            # The name is checked too: only a campaign that is surely ours may be archived.
+            if campaign.alias == alias and campaign.name == name:
                 return campaign
         return None
 
@@ -223,12 +262,13 @@ class CampaignCreator:
         self,
         entry: CreatedCampaign,
         journal: CreatedCampaignsRepository,
+        name: str,
         alias: str,
         cause: _Cause,
     ) -> CampaignCreationFailedError:
         entry.alias = alias
         try:
-            found = self._find_campaign_by_alias(alias)
+            found = self._find_our_campaign(name, alias)
         except Exception:
             # Without the listing we cannot tell whether a campaign is hanging in Keitaro.
             return self._fail_with_leftovers(
@@ -242,7 +282,8 @@ class CampaignCreator:
                 entry,
                 journal,
                 CreationStatus.FAILED,
-                f"Кампания не создана: {cause.message}",
+                f"Кампания не создана: {cause.message}. "
+                f"Кампания с alias {alias} в Keitaro не найдена",
                 cause,
             )
         entry.keitaro_campaign_id = found.id
@@ -329,10 +370,9 @@ class CampaignCreator:
     ) -> CampaignCreationFailedError:
         entry.status = status
         entry.error = message
-        journal.save(entry)
+        try:
+            journal.save(entry)
+        except Exception:
+            # The user still gets the compensation result; the log keeps the failed write.
+            logger.exception("Could not write the final state of the journal entry")
         return CampaignCreationFailedError(message, cause.code, cause.http_status)
-
-    @staticmethod
-    def _known_stream_ids(entry: CreatedCampaign) -> set[int]:
-        known = (entry.country_stream_id, entry.offers_stream_id)
-        return {stream_id for stream_id in known if stream_id is not None}
