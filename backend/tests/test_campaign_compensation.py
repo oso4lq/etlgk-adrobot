@@ -102,7 +102,7 @@ def test_alias_taken_every_time_fails_without_writes(creator, fake, journal):
     assert names_of(fake, "create").count("create_campaign") == 3
     assert not names_of(fake, "archive")
     assert (error.code, error.http_status) == ("keitaro_rejected", 422)
-    assert error.message == "Не удалось подобрать свободный alias за 3 попытки"
+    assert error.message == "Кампания не создана: Не удалось подобрать свободный alias за 3 попытки"
     assert entry.status == CreationStatus.FAILED and entry.error == error.message
 
 

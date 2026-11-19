@@ -196,7 +196,11 @@ class CampaignCreator:
                         error.http_status,
                     )
                     raise self._finish_with_error(
-                        entry, journal, CreationStatus.FAILED, cause.message, cause
+                        entry,
+                        journal,
+                        CreationStatus.FAILED,
+                        f"Кампания не создана: {cause.message}",
+                        cause,
                     ) from error
                 continue
             except KeitaroUnavailableError as error:
