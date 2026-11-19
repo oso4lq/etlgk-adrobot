@@ -24,6 +24,12 @@ def create_expecting_failure(creator: CampaignCreator, journal):
     return error.value, entry
 
 
+def create_expecting_failure_of_last(creator: CampaignCreator, journal):
+    with pytest.raises(CampaignCreationFailedError) as error:
+        creator.create(journal, REQUEST)
+    return error.value, journal.list_recent()[0]
+
+
 def names_of(fake, *prefixes):
     return [call[0] for call in fake.calls if call[0].startswith(prefixes)]
 
@@ -89,7 +95,11 @@ def test_campaign_not_created_means_nothing_to_archive(creator, fake, journal):
 
     assert not names_of(fake, "archive")
     assert entry.status == CreationStatus.FAILED
-    assert entry.error == error.message == "Кампания не создана: Keitaro недоступен"
+    assert (
+        entry.error
+        == error.message
+        == ("Кампания не создана: Keitaro недоступен. Кампания с alias alias1 в Keitaro не найдена")
+    )
     assert (error.code, error.http_status) == ("keitaro_unavailable", 502)
 
 
@@ -171,6 +181,24 @@ def test_alias_lookup_failure_is_reported_as_compensation_failed(creator, fake, 
     assert entry.error == error.message
 
 
+def test_unexpected_error_is_logged_at_error_level(creator, fake, journal, caplog):
+    fake.fail("create_offers_stream", RuntimeError("boom"))
+
+    create_expecting_failure(creator, journal)
+
+    records = [r for r in caplog.records if r.name == "app.creator"]
+    assert [r.levelname for r in records] == ["ERROR"]
+    assert records[0].exc_info is not None
+
+
+def test_keitaro_failure_is_not_logged_by_the_creator(creator, fake, journal, caplog):
+    fake.fail("create_offers_stream", KeitaroRejectedError("отказ", 422))
+
+    create_expecting_failure(creator, journal)
+
+    assert not [r for r in caplog.records if r.name == "app.creator"]
+
+
 def test_unexpected_error_is_compensated_and_reported_as_internal(creator, fake, journal):
     fake.fail("create_offers_stream", RuntimeError("boom"))
 
@@ -181,3 +209,16 @@ def test_unexpected_error_is_compensated_and_reported_as_internal(creator, fake,
     assert error.message.startswith("Кампания не создана: внутренняя ошибка")
     assert entry.status == CreationStatus.FAILED
     assert ("archive_campaign", entry.keitaro_campaign_id) in fake.calls
+
+
+def test_lookup_does_not_archive_campaign_with_our_alias_but_other_name(creator, fake, journal):
+    creator.create(journal, CampaignRequest("test_oso4lq_old", "DE", 18813))
+    fake.campaigns[1].alias = "alias2"  # the next alias the creator will generate
+    fake.fail("create_campaign", KeitaroUnavailableError("Keitaro недоступен"))
+
+    error, entry = create_expecting_failure_of_last(creator, journal)
+
+    assert entry.status == CreationStatus.FAILED
+    assert not names_of(fake, "archive")
+    assert fake.campaigns[1].state == "active"
+    assert error.message.endswith("Кампания с alias alias2 в Keitaro не найдена")
