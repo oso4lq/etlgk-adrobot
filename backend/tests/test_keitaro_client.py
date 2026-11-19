@@ -66,7 +66,7 @@ def test_list_traffic_sources_parses_real_example(keitaro_example):
 
 
 def test_create_campaign_sends_verified_body(keitaro_example):
-    example = keitaro_example("10-create-campaign")
+    example = keitaro_example("24-create-campaign-admin-defaults")
     body = example["request"]["body"]
     sent = []
     campaign = replay(example, sent).create_campaign(
@@ -84,10 +84,12 @@ def test_create_campaign_sends_verified_body(keitaro_example):
 
 
 def test_create_country_redirect_stream_sends_verified_body(keitaro_example):
-    example = keitaro_example("12-create-stream-country-redirect")
-    body = example["request"]["body"]
+    example = keitaro_example("24-create-campaign-admin-defaults")
+    body = example["observations"]["stream_bodies"][0]
     sent = []
-    stream = replay(example, sent).create_country_redirect_stream(
+    stream = client_answering(
+        200, example["observations"]["streams_after"][0], sent
+    ).create_country_redirect_stream(
         NewCountryRedirectStream(
             campaign_id=body["campaign_id"],
             name="Flow 1",
@@ -98,14 +100,16 @@ def test_create_country_redirect_stream_sends_verified_body(keitaro_example):
     )
     assert (sent[0].method, sent[0].url.path) == ("POST", "/admin_api/v1/streams")
     assert json.loads(sent[0].content) == body
-    assert stream.id == example["response"]["body"]["id"]
+    assert stream.id == example["observations"]["streams_after"][0]["id"]
 
 
 def test_create_offers_stream_sends_verified_body(keitaro_example):
-    example = keitaro_example("13-create-stream-offers")
-    body = example["request"]["body"]
+    example = keitaro_example("24-create-campaign-admin-defaults")
+    body = example["observations"]["stream_bodies"][1]
     sent = []
-    stream = replay(example, sent).create_offers_stream(
+    stream = client_answering(
+        200, example["observations"]["streams_after"][1], sent
+    ).create_offers_stream(
         NewOffersStream(
             campaign_id=body["campaign_id"],
             name="Flow 2",
@@ -219,6 +223,19 @@ def test_list_campaigns_parses_real_example(keitaro_example):
 
 
 UNAVAILABLE_MESSAGE = "Keitaro недоступен: некорректный ответ"
+
+
+def test_list_campaigns_skips_unparseable_items(caplog):
+    good = {"id": 1, "name": "a", "alias": "x1", "type": "position", "state": "active"}
+    bad = {"id": 2, "name": None, "alias": "x2", "type": "position", "state": "active"}
+    client = client_answering(200, [good, bad, {**good, "id": 3}], [])
+    assert [campaign.id for campaign in client.list_campaigns()] == [1, 3]
+    assert "skipped 1" in caplog.text and "x2" not in caplog.text
+
+
+def test_list_campaigns_non_list_body_is_unavailable():
+    with pytest.raises(KeitaroUnavailableError, match=UNAVAILABLE_MESSAGE):
+        client_answering(200, {"error": "x"}, []).list_campaigns()
 
 
 def test_empty_body_is_reported_as_unavailable():

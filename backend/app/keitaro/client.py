@@ -53,14 +53,15 @@ _OFFERS = TypeAdapter(list[KeitaroOffer])
 _DOMAINS = TypeAdapter(list[KeitaroDomain])
 _GROUPS = TypeAdapter(list[KeitaroGroup])
 _TRAFFIC_SOURCES = TypeAdapter(list[KeitaroTrafficSource])
-_CAMPAIGNS = TypeAdapter(list[KeitaroCampaign])
 _STREAMS = TypeAdapter(list[KeitaroStream])
 _CAMPAIGN = TypeAdapter(KeitaroCampaign)
 _STREAM = TypeAdapter(KeitaroStream)
 
 
 # Request bodies below are exactly the ones Keitaro accepted during recon
-# (docs/keitaro-examples 10, 12, 13, 16); do not add fields without re-checking.
+# (docs/keitaro-examples 12, 13, 16, 24); do not add fields without re-checking.
+# Creation bodies carry the admin UI defaults from example 24 (see "этап 2" in
+# docs/decisions.md) so that a campaign made through the API equals one made by hand.
 def _campaign_body(campaign: NewCampaign) -> dict[str, Any]:
     return {
         "name": campaign.name,
@@ -70,6 +71,10 @@ def _campaign_body(campaign: NewCampaign) -> dict[str, Any]:
         "domain_id": campaign.domain_id,
         "group_id": campaign.group_id,
         "traffic_source_id": campaign.traffic_source_id,
+        "cost_auto": True,
+        "uniqueness_method": "ip_ua",
+        "uniqueness_param": "",
+        "notes": "",
     }
 
 
@@ -85,6 +90,8 @@ def _country_redirect_stream_body(stream: NewCountryRedirectStream) -> dict[str,
         "name": stream.name,
         "type": "regular",
         "position": stream.position,
+        "weight": 100,
+        "comments": "",
         "schema": "redirect",
         "action_type": "http",
         "action_payload": stream.redirect_url,
@@ -99,6 +106,8 @@ def _offers_stream_body(stream: NewOffersStream) -> dict[str, Any]:
         "name": stream.name,
         "type": "regular",
         "position": stream.position,
+        "weight": 100,
+        "comments": "",
         "schema": "landings",
         "action_type": "http",
         "offers": _offer_bodies(stream.offers),
@@ -149,7 +158,22 @@ class KeitaroHttpClient:
         return _parse(_TRAFFIC_SOURCES, self._session.get("/traffic_sources"))
 
     def list_campaigns(self) -> list[KeitaroCampaign]:
-        return _parse(_CAMPAIGNS, self._session.get("/campaigns"))
+        payload = self._session.get("/campaigns")
+        if not isinstance(payload, list):
+            logger.warning("Keitaro campaign list is not a list")
+            raise KeitaroUnavailableError("Keitaro недоступен: некорректный ответ")
+        campaigns: list[KeitaroCampaign] = []
+        skipped = 0
+        for item in payload:
+            try:
+                campaigns.append(_CAMPAIGN.validate_python(item))
+            except ValidationError:
+                skipped += 1
+        if skipped:
+            # The instance is shared: one foreign malformed campaign must not break alias lookup
+            # during compensation or campaign choice. Item values are foreign data, so not logged.
+            logger.warning("Keitaro campaign list: skipped %d unparseable item(s)", skipped)
+        return campaigns
 
     def get_campaign(self, campaign_id: int) -> KeitaroCampaign:
         return _parse(_CAMPAIGN, self._session.get(f"/campaigns/{campaign_id}"))
