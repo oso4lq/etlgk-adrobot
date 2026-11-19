@@ -79,3 +79,23 @@ def test_misconfigured_creator_answers_503(make_api):
     response = create_campaign(api)
     assert response.status_code == 503
     assert response.json()["code"] == "creator_misconfigured"
+
+
+def test_wrong_field_type_answers_invalid_request(api):
+    response = api.post(
+        "/api/campaigns", json={"name": "test_oso4lq_x", "country": "DE", "offer_id": "abc"}
+    )
+    assert response.status_code == 422
+    assert response.json() == {
+        "code": "invalid_request",
+        "message": "Некорректный запрос: неверные или отсутствующие поля offer_id",
+    }
+
+
+def test_missing_fields_are_listed_in_order(api):
+    response = api.post("/api/campaigns", json={"country": "DE"})
+    assert response.status_code == 422
+    assert response.json() == {
+        "code": "invalid_request",
+        "message": "Некорректный запрос: неверные или отсутствующие поля name, offer_id",
+    }
