@@ -146,10 +146,12 @@ class CampaignCreator:
 
         # Everything above is read-only: a rejected request leaves no trace in Keitaro or journal.
         entry = journal.add_pending(name, country.code, request.offer_id)
+        # Kept locally: after a failed commit the entry is expired and reading it hits the DB again.
+        journal_id = entry.id
 
         progress = _Progress()
         try:
-            campaign = self._create_campaign(name, references, entry, journal, progress)
+            campaign = self._create_campaign(name, references, entry, journal, journal_id, progress)
             country_stream = self._client.create_country_redirect_stream(
                 NewCountryRedirectStream(
                     campaign_id=campaign.id,
@@ -176,7 +178,7 @@ class CampaignCreator:
             journal.save(entry)
 
             base = campaign.domain or f"https://{references.domain_name}"
-            entry.campaign_url = f"{base.rstrip('/')}/{entry.alias}"
+            entry.campaign_url = f"{base.rstrip('/')}/{progress.alias}"
             entry.status = CreationStatus.CREATED
             # Inside the try: a campaign we cannot record must not stay in Keitaro (spec §5).
             journal.save(entry)
@@ -184,14 +186,21 @@ class CampaignCreator:
             # Already compensated and written to the journal by the campaign step.
             raise
         except Exception as error:
-            # A failed save rolls the session back, which discards unsaved entry fields.
-            entry.alias = progress.alias or entry.alias
-            entry.keitaro_campaign_id = progress.campaign_id or entry.keitaro_campaign_id
-            entry.country_stream_id = progress.country_stream_id or entry.country_stream_id
-            entry.offers_stream_id = progress.offers_stream_id or entry.offers_stream_id
+            # A failed save rolls the session back and expires the entry. Only assignments are made
+            # here, never reads: with the database still down a read would raise before the
+            # compensation below has archived anything.
+            entry.alias = progress.alias
+            entry.keitaro_campaign_id = progress.campaign_id
+            entry.country_stream_id = progress.country_stream_id
+            entry.offers_stream_id = progress.offers_stream_id
             entry.campaign_url = None
             raise self._compensate_and_fail(
-                entry, journal, self._describe(error), progress.campaign_id, progress.stream_ids()
+                entry,
+                journal,
+                journal_id,
+                self._describe(error),
+                progress.campaign_id,
+                progress.stream_ids(),
             ) from error
         return entry
 
@@ -208,6 +217,7 @@ class CampaignCreator:
         references: CreatorReferences,
         entry: CreatedCampaign,
         journal: CreatedCampaignsRepository,
+        journal_id: int,
         progress: _Progress,
     ) -> KeitaroCampaign:
         attempt = 0
@@ -234,6 +244,7 @@ class CampaignCreator:
                     raise self._finish_with_error(
                         entry,
                         journal,
+                        journal_id,
                         CreationStatus.FAILED,
                         f"Кампания не создана: {cause.message}",
                         cause,
@@ -242,7 +253,7 @@ class CampaignCreator:
             except KeitaroUnavailableError as error:
                 # The POST may have been executed with the response lost on the way back.
                 raise self._fail_unconfirmed_campaign(
-                    entry, journal, name, alias, _Cause.of(error)
+                    entry, journal, journal_id, name, alias, _Cause.of(error)
                 ) from error
             progress.alias = alias
             progress.campaign_id = campaign.id
@@ -262,6 +273,7 @@ class CampaignCreator:
         self,
         entry: CreatedCampaign,
         journal: CreatedCampaignsRepository,
+        journal_id: int,
         name: str,
         alias: str,
         cause: _Cause,
@@ -274,6 +286,7 @@ class CampaignCreator:
             return self._fail_with_leftovers(
                 entry,
                 journal,
+                journal_id,
                 cause,
                 [f"кампания с alias {alias} (проверить, создалась ли, не удалось)"],
             )
@@ -281,29 +294,33 @@ class CampaignCreator:
             return self._finish_with_error(
                 entry,
                 journal,
+                journal_id,
                 CreationStatus.FAILED,
                 f"Кампания не создана: {cause.message}. "
                 f"Кампания с alias {alias} в Keitaro не найдена",
                 cause,
             )
         entry.keitaro_campaign_id = found.id
-        return self._compensate_and_fail(entry, journal, cause, found.id, set())
+        return self._compensate_and_fail(entry, journal, journal_id, cause, found.id, set())
 
     def _compensate_and_fail(
         self,
         entry: CreatedCampaign,
         journal: CreatedCampaignsRepository,
+        journal_id: int,
         cause: _Cause,
         campaign_id: int | None,
         known_stream_ids: set[int],
     ) -> CampaignCreationFailedError:
         archived_something, leftovers = self._archive_created(campaign_id, known_stream_ids)
         if leftovers:
-            return self._fail_with_leftovers(entry, journal, cause, leftovers)
+            return self._fail_with_leftovers(entry, journal, journal_id, cause, leftovers)
         message = f"Кампания не создана: {cause.message}"
         if archived_something:
             message += ". Созданное в Keitaro перенесено в архив"
-        return self._finish_with_error(entry, journal, CreationStatus.FAILED, message, cause)
+        return self._finish_with_error(
+            entry, journal, journal_id, CreationStatus.FAILED, message, cause
+        )
 
     def _archive_created(
         self, campaign_id: int | None, known_stream_ids: set[int]
@@ -347,23 +364,25 @@ class CampaignCreator:
         self,
         entry: CreatedCampaign,
         journal: CreatedCampaignsRepository,
+        journal_id: int,
         cause: _Cause,
         leftovers: list[str],
     ) -> CampaignCreationFailedError:
         message = (
             f"Кампания не создана: {cause.message}. "
             f"Не удалось убрать в архив: {'; '.join(leftovers)} "
-            f"— нужна ручная уборка (журнал #{entry.id})"
+            f"— нужна ручная уборка (журнал #{journal_id})"
         )
         failure = _Cause(message, COMPENSATION_FAILED_CODE, COMPENSATION_FAILED_HTTP_STATUS)
         return self._finish_with_error(
-            entry, journal, CreationStatus.COMPENSATION_FAILED, message, failure
+            entry, journal, journal_id, CreationStatus.COMPENSATION_FAILED, message, failure
         )
 
     def _finish_with_error(
         self,
         entry: CreatedCampaign,
         journal: CreatedCampaignsRepository,
+        journal_id: int,
         status: CreationStatus,
         message: str,
         cause: _Cause,
@@ -374,5 +393,6 @@ class CampaignCreator:
             journal.save(entry)
         except Exception:
             # The user still gets the compensation result; the log keeps the failed write.
-            logger.exception("Could not write the final state of the journal entry")
+            logger.exception("Could not write the final state of journal entry %s", journal_id)
+            message += f" (журнал #{journal_id} не обновлён)"
         return CampaignCreationFailedError(message, cause.code, cause.http_status)
