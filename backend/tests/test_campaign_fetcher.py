@@ -5,6 +5,7 @@ from app.domain.offer_bindings import is_draft
 from app.keitaro.errors import KeitaroNotFoundError, KeitaroUnavailableError
 from app.services.campaign_fetcher import CampaignFetcher
 from app.services.editor_errors import CampaignNotFetchedError
+from app.services.offer_catalog import OfferCatalog
 
 
 @pytest.fixture
@@ -242,3 +243,83 @@ def test_load_unfetched_campaign_is_not_found(fetcher, editor_repository):
         fetcher.load(editor_repository, 5)
     assert raised.value.code == "campaign_not_fetched"
     assert raised.value.http_status == 404
+    assert raised.value.message == (
+        "Кампания 5 ещё не загружена в редактор — выполните Fetch Streams"
+    )
+
+
+def test_fetch_force_with_unpublished_offer_present_in_keitaro(
+    fetcher, editor_repository, db_session, fake, scene
+):
+    campaign, _, flow_two = scene
+    fetcher.fetch(editor_repository, campaign.id)
+    make_draft(editor_repository, campaign.id)
+    fake.set_stream_offers(flow_two.id, [(1001, 25), (1002, 25), (1003, 25), (1004, 25)])
+    fetcher.fetch(editor_repository, campaign.id, force=True)
+    saved = reload(db_session, editor_repository, campaign.id)
+    offers = saved.streams[1].offers
+    assert [o.keitaro_offer_id for o in offers] == [1001, 1002, 1003, 1004]
+    assert (offers[3].status, offers[3].weight) == ("active", 25)
+    assert (offers[3].published_status, offers[3].published_weight) == ("active", 25)
+    assert not is_draft(offers)
+
+
+def test_fetch_refreshes_offer_name_from_catalog(
+    fetcher, editor_repository, db_session, fake, scene
+):
+    campaign, _, _ = scene
+    fetcher.fetch(editor_repository, campaign.id)
+    fake.offers[1].name = "Renamed 1001"
+    renewed = CampaignFetcher(fake, OfferCatalog(fake, ttl_seconds=300))
+    renewed.fetch(editor_repository, campaign.id)
+    saved = reload(db_session, editor_repository, campaign.id)
+    assert stream_offers(saved, 2)[1001].offer_name == "Renamed 1001"
+
+
+def test_fetch_keeps_stored_name_when_catalog_lacks_offer(
+    fetcher, editor_repository, db_session, fake, scene
+):
+    campaign, _, _ = scene
+    fetcher.fetch(editor_repository, campaign.id)
+    fake.offers = [offer for offer in fake.offers if offer.id != 1001]
+    renewed = CampaignFetcher(fake, OfferCatalog(fake, ttl_seconds=300))
+    renewed.fetch(editor_repository, campaign.id)
+    saved = reload(db_session, editor_repository, campaign.id)
+    assert stream_offers(saved, 2)[1001].offer_name == "Offer 1001"
+
+
+def test_fetch_updates_position_of_existing_stream(
+    fetcher, editor_repository, db_session, fake, scene
+):
+    campaign, flow_one, flow_two = scene
+    fetcher.fetch(editor_repository, campaign.id)
+    fake.streams[flow_one.id].position = 2
+    fake.streams[flow_two.id].position = 1
+    fetcher.fetch(editor_repository, campaign.id)
+    saved = reload(db_session, editor_repository, campaign.id)
+    assert [s.name for s in saved.streams] == ["Flow 2", "Flow 1"]
+
+
+def test_fetch_updates_position_of_kept_draft_stream(
+    fetcher, editor_repository, db_session, fake, scene
+):
+    campaign, flow_one, flow_two = scene
+    fetcher.fetch(editor_repository, campaign.id)
+    make_draft(editor_repository, campaign.id)
+    fake.streams[flow_one.id].position = 2
+    fake.streams[flow_two.id].position = 1
+    fetcher.fetch(editor_repository, campaign.id)
+    saved = reload(db_session, editor_repository, campaign.id)
+    assert [s.name for s in saved.streams] == ["Flow 2", "Flow 1"]
+    assert is_draft(saved.streams[0].offers)
+    assert len(saved.streams[0].offers) == 4
+
+
+def test_fetch_clean_stream_deleted_in_keitaro_reports_only_deletion(
+    fetcher, editor_repository, fake, scene
+):
+    campaign, _, flow_two = scene
+    fetcher.fetch(editor_repository, campaign.id)
+    fake.streams[flow_two.id].state = "deleted"
+    result = fetcher.fetch(editor_repository, campaign.id)
+    assert [n.code for n in result.notices] == ["streams_deleted_in_keitaro"]

@@ -140,11 +140,16 @@ class CampaignFetcher:
         keitaro_stream: KeitaroStream,
         offer_names: dict[int, str],
     ) -> None:
+        remote_offers = _remote_offers(keitaro_stream)
         if is_draft(local_stream.offers):
             # Forced fetch: the draft is discarded, so never-published bindings go away.
+            # Those Keitaro already has are kept: sync_bindings overwrites them, and
+            # re-creating them would violate the (stream, offer) uniqueness.
+            remote_ids = {offer.offer_id for offer in remote_offers}
             for binding in cancel_draft(local_stream.offers):
-                local_stream.offers.remove(binding)
-        unknown = sync_bindings(local_stream.offers, _remote_offers(keitaro_stream))
+                if binding.keitaro_offer_id not in remote_ids:
+                    local_stream.offers.remove(binding)
+        unknown = sync_bindings(local_stream.offers, remote_offers)
         for binding in local_stream.offers:
             name = offer_names.get(binding.keitaro_offer_id)
             if name:

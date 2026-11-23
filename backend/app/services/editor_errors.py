@@ -7,5 +7,5 @@ class CampaignNotFetchedError(AppError):
 
     def __init__(self, keitaro_campaign_id: int) -> None:
         super().__init__(
-            f"Кампания {keitaro_campaign_id} ещё не загружена в редактор: нажмите Fetch Streams"
+            f"Кампания {keitaro_campaign_id} ещё не загружена в редактор — выполните Fetch Streams"
         )
