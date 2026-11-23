@@ -9,6 +9,7 @@ from app.db import models  # noqa: F401  (registers tables in Base.metadata)
 from app.db.base import Base
 from app.db.session import create_db_engine
 from app.repositories.created_campaigns import CreatedCampaignsRepository
+from app.repositories.editor import EditorRepository
 from app.services.campaign_creator import CampaignCreator
 from app.services.creator_references import CreatorReferenceResolver
 from app.services.offer_catalog import OfferCatalog
@@ -62,6 +63,16 @@ def fake() -> FakeKeitaroClient:
 @pytest.fixture
 def journal(db_session) -> CreatedCampaignsRepository:
     return CreatedCampaignsRepository(db_session)
+
+
+@pytest.fixture
+def editor_repository(db_session) -> EditorRepository:
+    return EditorRepository(db_session)
+
+
+@pytest.fixture
+def offer_catalog(fake) -> OfferCatalog:
+    return OfferCatalog(fake, ttl_seconds=300)
 
 
 @pytest.fixture
