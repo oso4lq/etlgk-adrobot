@@ -90,6 +90,13 @@ def test_find_refreshes_once_on_miss(fake, catalog):
     assert fake.calls.count(("list_offers",)) == 3
 
 
+def test_names_come_from_cache_without_forced_reload(fake, catalog):
+    catalog.names()
+    catalog.names()
+    assert fake.calls.count(("list_offers",)) == 1
+    assert catalog.names()[18813] == "Test offer 18813"
+
+
 def test_keitaro_errors_propagate(fake, catalog):
     fake.fail("list_offers", KeitaroUnavailableError("down"))
     with pytest.raises(KeitaroUnavailableError):

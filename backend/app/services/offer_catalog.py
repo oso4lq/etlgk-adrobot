@@ -1,9 +1,19 @@
-import threading
 import time
 from collections.abc import Callable
 
+from app.core.errors import AppError
+from app.domain.search import SEARCH_LIMIT, search_by_id_or_name
 from app.keitaro.client import KeitaroClient
 from app.keitaro.models import KeitaroOffer
+from app.services.ttl_cache import TtlCache
+
+
+class OfferNotFoundError(AppError):
+    code = "offer_not_found"
+    http_status = 422
+
+    def __init__(self, offer_id: int) -> None:
+        super().__init__(f"Оффер {offer_id} не найден в Keitaro")
 
 
 class OfferCatalog:
@@ -15,39 +25,29 @@ class OfferCatalog:
         ttl_seconds: float,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        self._client = client
-        self._ttl_seconds = ttl_seconds
-        self._clock = clock
-        # FastAPI runs sync endpoints in a thread pool, so the cache is shared between threads.
-        self._lock = threading.Lock()
-        self._offers: list[KeitaroOffer] = []
-        self._loaded_at: float | None = None
+        self._cache = TtlCache(client.list_offers, ttl_seconds, clock)
 
-    def search(self, query: str, limit: int = 20) -> list[KeitaroOffer]:
-        with self._lock:
-            offers, _ = self._current_offers()
-        query = query.strip()
-        if not query:
-            return offers[:limit]
-        folded_query = query.casefold()
-        exact: list[KeitaroOffer] = []
-        others: list[KeitaroOffer] = []
-        for offer in offers:
-            offer_id_text = str(offer.id)
-            if offer_id_text == query:
-                exact.append(offer)
-            elif offer_id_text.startswith(query) or folded_query in offer.name.casefold():
-                others.append(offer)
-        return (exact + others)[:limit]
+    def search(self, query: str, limit: int = SEARCH_LIMIT) -> list[KeitaroOffer]:
+        offers, _ = self._cache.get()
+        return search_by_id_or_name(offers, query, limit)
 
     def find(self, offer_id: int) -> KeitaroOffer | None:
-        with self._lock:
-            offers, just_loaded = self._current_offers()
-            found = self._find_in(offers, offer_id)
-            if found is not None or just_loaded:
-                return found
-            # The offer may have been created in Keitaro after the cache was filled.
-            return self._find_in(self._reload(), offer_id)
+        offers, just_loaded = self._cache.get()
+        found = self._find_in(offers, offer_id)
+        if found is not None or just_loaded:
+            return found
+        # The offer may have been created in Keitaro after the cache was filled. The check and
+        # the reload are not atomic: concurrent requests may reload twice, which costs only
+        # one extra GET /offers.
+        return self._find_in(self._cache.reload(), offer_id)
+
+    def names(self) -> dict[int, str]:
+        """Offer names by id from the cache; a missing id does not force a reload."""
+        offers, _ = self._cache.get()
+        names: dict[int, str] = {}
+        for offer in offers:
+            names[offer.id] = offer.name
+        return names
 
     @staticmethod
     def _find_in(offers: list[KeitaroOffer], offer_id: int) -> KeitaroOffer | None:
@@ -55,18 +55,3 @@ class OfferCatalog:
             if offer.id == offer_id:
                 return offer
         return None
-
-    def _current_offers(self) -> tuple[list[KeitaroOffer], bool]:
-        """Returns the cached offers and whether they were just loaded from Keitaro."""
-        is_fresh = (
-            self._loaded_at is not None and self._clock() - self._loaded_at < self._ttl_seconds
-        )
-        if is_fresh:
-            return self._offers, False
-        return self._reload(), True
-
-    def _reload(self) -> list[KeitaroOffer]:
-        # If Keitaro fails, the exception leaves the old cache and timestamp untouched.
-        self._offers = self._client.list_offers()
-        self._loaded_at = self._clock()
-        return self._offers
