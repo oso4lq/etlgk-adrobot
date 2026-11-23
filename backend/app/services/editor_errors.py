@@ -1,4 +1,5 @@
 from app.core.errors import AppError
+from app.domain.write_guard import write_forbidden_message
 
 
 class CampaignNotFetchedError(AppError):
@@ -46,3 +47,29 @@ class OfferAlreadyInStreamError(AppError):
 
     def __init__(self, offer_id: int) -> None:
         super().__init__(f"Оффер {offer_id} уже есть в потоке")
+
+
+class StreamNotDraftError(AppError):
+    code = "stream_not_draft"
+    http_status = 409
+
+    def __init__(self) -> None:
+        super().__init__("Нечего публиковать: в потоке нет неопубликованных изменений")
+
+
+class WeightsNotReadyError(AppError):
+    code = "weights_sum_not_100"
+    http_status = 422
+
+
+class WriteForbiddenError(AppError):
+    code = "write_forbidden"
+    http_status = 403
+
+    def __init__(self, prefix: str) -> None:
+        super().__init__(write_forbidden_message(prefix))
+
+
+class KeitaroStreamChangedError(AppError):
+    code = "keitaro_stream_changed"
+    http_status = 409

@@ -7,6 +7,7 @@ from app.core.errors import AppError
 from app.db.models import CreatedCampaign, CreationStatus
 from app.domain.alias import generate_alias
 from app.domain.countries import find_country
+from app.domain.write_guard import is_write_allowed
 from app.keitaro.client import KeitaroClient
 from app.keitaro.errors import KeitaroAliasTakenError, KeitaroUnavailableError
 from app.keitaro.models import (
@@ -127,7 +128,7 @@ class CampaignCreator:
         if not name:
             raise InvalidCampaignNameError
         prefix = self._settings.keitaro_write_name_prefix
-        if prefix and not name.startswith(prefix):
+        if not is_write_allowed(name, prefix):
             raise NamePrefixRequiredError(prefix)
         country = find_country(request.country)
         if country is None:
