@@ -12,12 +12,13 @@ from datetime import UTC, datetime
 from app.db.models import EditorCampaign, EditorStream, StreamOffer
 from app.domain.notices import Notice
 from app.domain.offer_bindings import cancel_draft, is_draft, next_sort_order
-from app.domain.offer_sync import RemoteOffer, merge_remote_offers, remote_state, sync_bindings
+from app.domain.offer_sync import RemoteOffer, remote_state, sync_bindings
 from app.keitaro.client import KeitaroClient
 from app.keitaro.models import KeitaroStream
 from app.repositories.editor import EditorRepository
 from app.services.editor_errors import CampaignNotFetchedError
 from app.services.offer_catalog import OfferCatalog
+from app.services.remote_offers import remote_offers
 
 OFFER_NAME_FALLBACK = "Оффер {offer_id}"
 
@@ -31,12 +32,6 @@ class FetchResult:
 
 def _quoted_names(names: list[str]) -> str:
     return ", ".join(f"«{name}»" for name in names)
-
-
-def _remote_offers(stream: KeitaroStream) -> list[RemoteOffer]:
-    return merge_remote_offers(
-        RemoteOffer(offer.offer_id, offer.share, offer.state == "active") for offer in stream.offers
-    )
 
 
 class CampaignFetcher:
@@ -130,7 +125,7 @@ class CampaignFetcher:
             name=keitaro_stream.name,
             position=keitaro_stream.position,
         )
-        for sort_order, remote in enumerate(_remote_offers(keitaro_stream)):
+        for sort_order, remote in enumerate(remote_offers(keitaro_stream)):
             stream.offers.append(self._new_binding(remote, sort_order, offer_names))
         return stream
 
@@ -140,16 +135,16 @@ class CampaignFetcher:
         keitaro_stream: KeitaroStream,
         offer_names: dict[int, str],
     ) -> None:
-        remote_offers = _remote_offers(keitaro_stream)
+        current_offers = remote_offers(keitaro_stream)
         if is_draft(local_stream.offers):
             # Forced fetch: the draft is discarded, so never-published bindings go away.
             # Those Keitaro already has are kept: sync_bindings overwrites them, and
             # re-creating them would violate the (stream, offer) uniqueness.
-            remote_ids = {offer.offer_id for offer in remote_offers}
+            remote_ids = {offer.offer_id for offer in current_offers}
             for binding in cancel_draft(local_stream.offers):
                 if binding.keitaro_offer_id not in remote_ids:
                     local_stream.offers.remove(binding)
-        unknown = sync_bindings(local_stream.offers, remote_offers)
+        unknown = sync_bindings(local_stream.offers, current_offers)
         for binding in local_stream.offers:
             name = offer_names.get(binding.keitaro_offer_id)
             if name:

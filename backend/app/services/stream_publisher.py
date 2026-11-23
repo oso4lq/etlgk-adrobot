@@ -17,7 +17,6 @@ from app.domain.offer_bindings import (
     stream_notices,
     working_shares,
 )
-from app.domain.offer_sync import RemoteOffer, merge_remote_offers
 from app.domain.write_guard import is_write_allowed
 from app.keitaro.client import KeitaroClient
 from app.keitaro.errors import KeitaroNotFoundError
@@ -30,6 +29,7 @@ from app.services.editor_errors import (
     WeightsNotReadyError,
     WriteForbiddenError,
 )
+from app.services.remote_offers import remote_offers
 
 STREAM_DELETED_MESSAGE = "Поток удалён в Keitaro — выполните Fetch Streams"
 OFFERS_CHANGED_MESSAGE = (
@@ -93,8 +93,6 @@ class StreamPublisher:
 
 
 def _active_shares(remote_stream: KeitaroStream) -> dict[int, int]:
-    offers = merge_remote_offers(
-        RemoteOffer(offer.offer_id, offer.share, offer.state == "active")
-        for offer in remote_stream.offers
-    )
-    return {offer.offer_id: offer.share for offer in offers if offer.is_active}
+    return {
+        offer.offer_id: offer.share for offer in remote_offers(remote_stream) if offer.is_active
+    }
