@@ -228,3 +228,33 @@ def test_keitaro_conflict_on_push_is_409(api, fake, scene):
     response = api.post(f"/api/editor/streams/{flow_two.id}/push")
     assert response.status_code == 409
     assert response.json()["code"] == "keitaro_stream_changed"
+
+
+def test_refetch_lists_streams_in_keitaro_position_order(api, fake, scene):
+    campaign, flow_one, flow_two = scene
+    fetch(api, campaign)
+    # Keitaro inserts a stream at position 1 and shifts the others down.
+    fake.streams[flow_one.id].position = 2
+    fake.streams[flow_two.id].position = 3
+    inserted = fake.add_stream(campaign.id, "Flow 0", 1)
+    body = fetch(api, campaign)
+    names = [stream["name"] for stream in body["campaign"]["streams"]]
+    assert names == ["Flow 0", "Flow 1", "Flow 2"]
+    assert body["campaign"]["streams"][0]["keitaro_stream_id"] == inserted.id
+
+
+def test_weights_problem_blocks_push_but_not_cancel(api, fake):
+    for offer_id in (1001, 1002):
+        fake.add_offer(offer_id, f"Offer {offer_id}")
+    campaign = fake.add_campaign("test_oso4lq_weights")
+    stream = fake.add_stream(campaign.id, "Flow", 1, [(1001, 40), (1002, 50)])
+    fetch(api, campaign)
+    api.post(offers_url(stream, "/1001/pin"))
+    api.post(offers_url(stream, "/1002/pin"))
+    # The only active offer stays pinned at 40%, so the stream cannot reach 100%.
+    body = api.post(offers_url(stream, "/1002/remove")).json()
+    assert weights(body)[1001] == 40
+    assert body["is_draft"] is True
+    assert body["can_push"] is False
+    assert body["can_cancel"] is True
+    assert "weights_sum_not_100" in [problem["code"] for problem in body["problems"]]

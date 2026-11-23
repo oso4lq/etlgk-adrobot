@@ -33,7 +33,8 @@ from app.services.remote_offers import remote_offers
 
 STREAM_DELETED_MESSAGE = "Поток удалён в Keitaro — выполните Fetch Streams"
 OFFERS_CHANGED_MESSAGE = (
-    "Офферы потока в Keitaro изменились после последнего Fetch Streams — выполните Fetch Streams"
+    "Офферы потока в Keitaro изменились после последнего Fetch Streams — "
+    "выполните Fetch Streams с отбросом черновика"
 )
 
 
@@ -86,8 +87,10 @@ class StreamPublisher:
             remote_stream = self._client.get_stream(keitaro_stream_id)
         except KeitaroNotFoundError:
             raise KeitaroStreamChangedError(STREAM_DELETED_MESSAGE) from None
-        # An archived stream still answers GET with state "deleted" (decisions В7).
-        if remote_stream.state != "active" or remote_stream.campaign_id != keitaro_campaign_id:
+        # An archived stream still answers GET with state "deleted" (decisions В7). A paused
+        # ("disabled") stream is not gone: only its offers are written, it stays disabled, and
+        # refusing it would leave a dead end (Fetch keeps the draft, Push fails again).
+        if remote_stream.state == "deleted" or remote_stream.campaign_id != keitaro_campaign_id:
             raise KeitaroStreamChangedError(STREAM_DELETED_MESSAGE)
         return _active_shares(remote_stream)
 

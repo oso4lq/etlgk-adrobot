@@ -1,7 +1,11 @@
 import pytest
 
 from app.domain.offer_bindings import is_draft
-from app.keitaro.errors import KeitaroRejectedError, KeitaroUnavailableError
+from app.keitaro.errors import (
+    KeitaroNotFoundError,
+    KeitaroRejectedError,
+    KeitaroUnavailableError,
+)
 from app.keitaro.models import StreamOfferShare
 from app.services.campaign_fetcher import CampaignFetcher
 from app.services.editor_errors import (
@@ -206,8 +210,34 @@ def test_push_conflict_when_keitaro_offers_changed(
         publisher.push(editor_repository, flow_two.id)
     assert str(raised.value) == (
         "Офферы потока в Keitaro изменились после последнего Fetch Streams — "
-        "выполните Fetch Streams"
+        "выполните Fetch Streams с отбросом черновика"
     )
+    assert write_calls(fake) == []
+    assert is_draft(reload_stream(db_session, editor_repository, flow_two.id).offers)
+
+
+def test_push_to_disabled_stream_writes_offers_and_keeps_it_disabled(
+    editor, publisher, editor_repository, db_session, fake, scene
+):
+    _, _, flow_two = scene
+    editor.add_offer(editor_repository, flow_two.id, 1004)
+    fake.streams[flow_two.id].state = "disabled"
+    publisher.push(editor_repository, flow_two.id)
+    assert keitaro_shares(fake, flow_two.id) == [(1001, 25), (1002, 25), (1003, 25), (1004, 25)]
+    assert fake.streams[flow_two.id].state == "disabled"
+    assert not is_draft(reload_stream(db_session, editor_repository, flow_two.id).offers)
+
+
+def test_push_refused_when_campaign_archived_in_keitaro(
+    editor, publisher, editor_repository, db_session, fake, scene
+):
+    campaign, _, flow_two = scene
+    editor.add_offer(editor_repository, flow_two.id, 1004)
+    # Streams of an archived campaign stay active (decisions В7): only get_campaign stops the PUT.
+    fake.campaigns[campaign.id].state = "deleted"
+    with pytest.raises(KeitaroNotFoundError) as raised:
+        publisher.push(editor_repository, flow_two.id)
+    assert raised.value.code == "keitaro_not_found"
     assert write_calls(fake) == []
     assert is_draft(reload_stream(db_session, editor_repository, flow_two.id).offers)
 

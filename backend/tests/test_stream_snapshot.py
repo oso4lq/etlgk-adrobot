@@ -142,3 +142,37 @@ def test_main_reports_configuration_error_by_names_only(tmp_path, capsys):
     error_output = capsys.readouterr().err
     assert "Ошибка конфигурации" in error_output
     assert "secret-xyz" not in error_output
+
+
+def test_diff_with_missing_snapshot_reports_and_returns_2(tmp_path, make_settings, capsys):
+    code = main(
+        ["diff", str(STREAM_ID), str(tmp_path / "absent.json")],
+        load_settings=make_settings,
+        build_session=_session_builder(_stream()),
+    )
+    assert code == 2
+    assert "Не удалось прочитать снимок" in capsys.readouterr().err
+
+
+def test_diff_with_corrupt_snapshot_reports_and_returns_2(tmp_path, make_settings, capsys):
+    path = tmp_path / "snapshot.json"
+    path.write_text("{not json", encoding="utf-8")
+    code = main(
+        ["diff", str(STREAM_ID), str(path)],
+        load_settings=make_settings,
+        build_session=_session_builder(_stream()),
+    )
+    assert code == 2
+    assert "повреждён" in capsys.readouterr().err
+
+
+def test_save_to_unwritable_path_reports_and_returns_2(tmp_path, make_settings, capsys):
+    blocker = tmp_path / "file"
+    blocker.write_text("x", encoding="utf-8")
+    code = main(
+        ["save", str(STREAM_ID), str(blocker / "snapshot.json")],
+        load_settings=make_settings,
+        build_session=_session_builder(_stream()),
+    )
+    assert code == 2
+    assert "Не удалось записать снимок" in capsys.readouterr().err

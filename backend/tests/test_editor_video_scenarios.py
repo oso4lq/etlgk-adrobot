@@ -7,7 +7,7 @@ Every test replays the previous steps through the helpers below, so each one rea
 import pytest
 
 from app.services.campaign_fetcher import CampaignFetcher
-from app.services.editor_views import stream_response
+from app.services.editor_views import campaign_response, stream_response
 from app.services.stream_editor import StreamEditor
 from app.services.stream_publisher import StreamPublisher
 
@@ -103,7 +103,12 @@ def after_step_7(video):
 
 
 def test_step_1_fetch_streams_shows_offers_and_plain_stream(video):
-    after_step_1(video)
+    result = video.fetch()
+    # Pins: streams come in Keitaro's position order straight from the fetch result.
+    assert [stream.name for stream in campaign_response(result.campaign, PREFIX).streams] == [
+        "Flow 1",
+        "Flow 2",
+    ]
     plain = video.screen(video.flow_one.id)
     # Pins: a stream without offers is shown as a plain stream, no offers, nothing to push.
     assert (plain.has_offers, plain.offers, plain.is_draft, plain.can_push) == (

@@ -12,8 +12,7 @@ from app.schemas.editor import (
     StreamResponse,
 )
 from app.services.campaign_fetcher import FetchResult
-
-WRITE_FORBIDDEN_CODE = "write_forbidden"
+from app.services.editor_errors import WriteForbiddenError
 
 
 def _notice_response(notice: Notice) -> NoticeResponse:
@@ -53,7 +52,9 @@ def stream_response(stream: EditorStream, write_prefix: str) -> StreamResponse:
     problems = [_notice_response(notice) for notice in notices.problems]
     if draft and not is_write_allowed(stream.campaign.name, write_prefix):
         problems.append(
-            NoticeResponse(code=WRITE_FORBIDDEN_CODE, message=write_forbidden_message(write_prefix))
+            NoticeResponse(
+                code=WriteForbiddenError.code, message=write_forbidden_message(write_prefix)
+            )
         )
     return StreamResponse(
         keitaro_stream_id=stream.keitaro_stream_id,
@@ -70,12 +71,14 @@ def stream_response(stream: EditorStream, write_prefix: str) -> StreamResponse:
 
 
 def campaign_response(campaign: EditorCampaign, write_prefix: str) -> CampaignResponse:
+    # Sorted here: streams added by a re-Fetch are appended in memory, not placed by position.
+    streams = sorted(campaign.streams, key=lambda stream: stream.position)
     return CampaignResponse(
         keitaro_campaign_id=campaign.keitaro_campaign_id,
         name=campaign.name,
         write_allowed=is_write_allowed(campaign.name, write_prefix),
         last_fetched_at=campaign.last_fetched_at,
-        streams=[stream_response(stream, write_prefix) for stream in campaign.streams],
+        streams=[stream_response(stream, write_prefix) for stream in streams],
     )
 
 

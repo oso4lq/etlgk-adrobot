@@ -7,7 +7,10 @@ filters, action, position and everything else are proven untouched. Nothing is w
 Run from backend/:
   python -m tools.stream_snapshot save STREAM_ID PATH
   python -m tools.stream_snapshot diff STREAM_ID PATH [--record NAME]
-Exit codes: 0 - no differences, 1 - differences or a Keitaro error, 2 - configuration error.
+Keep the raw snapshot outside the repository (it is unsanitised);
+only the sanitised `--record` output goes into docs.
+Exit codes: 0 - no differences, 1 - differences or a Keitaro error,
+2 - configuration or snapshot file error.
 """
 
 import argparse
@@ -112,14 +115,27 @@ def main(
         session.close()
 
     if arguments.command == "save":
-        arguments.path.parent.mkdir(parents=True, exist_ok=True)
-        arguments.path.write_text(
-            json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        try:
+            arguments.path.parent.mkdir(parents=True, exist_ok=True)
+            arguments.path.write_text(
+                json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        except OSError as error:
+            print(
+                f"Не удалось записать снимок в {arguments.path}: {error.strerror}", file=sys.stderr
+            )
+            return 2
         print(f"Снимок потока {arguments.stream_id} сохранён")
         return 0
 
-    before = json.loads(arguments.path.read_text(encoding="utf-8"))
+    try:
+        before = json.loads(arguments.path.read_text(encoding="utf-8"))
+    except OSError as error:
+        print(f"Не удалось прочитать снимок {arguments.path}: {error.strerror}", file=sys.stderr)
+        return 2
+    except ValueError:
+        print(f"Снимок {arguments.path} повреждён: это не JSON", file=sys.stderr)
+        return 2
     differences = stream_settings_differences(before, current)
     if arguments.record:
         _record(arguments.record, settings, arguments.stream_id, before, current, differences)
