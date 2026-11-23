@@ -1,9 +1,9 @@
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.engine import Dialect
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
 
 from app.db.base import Base
@@ -59,3 +59,58 @@ class CreatedCampaign(Base):
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime())
     updated_at: Mapped[datetime] = mapped_column(UtcDateTime())
+
+
+class EditorCampaign(Base):
+    """Local copy of a Keitaro campaign the editor works with."""
+
+    __tablename__ = "editor_campaigns"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    keitaro_campaign_id: Mapped[int] = mapped_column(Integer, unique=True)
+    # Text, not String(255): the length of names coming from Keitaro is unknown.
+    name: Mapped[str] = mapped_column(Text)
+    last_fetched_at: Mapped[datetime] = mapped_column(UtcDateTime())
+
+    streams: Mapped[list["EditorStream"]] = relationship(
+        back_populates="campaign",
+        order_by="EditorStream.position",
+        cascade="all, delete-orphan",
+    )
+
+
+class EditorStream(Base):
+    __tablename__ = "editor_streams"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("editor_campaigns.id", ondelete="CASCADE"))
+    keitaro_stream_id: Mapped[int] = mapped_column(Integer, unique=True)
+    name: Mapped[str] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer)
+
+    campaign: Mapped[EditorCampaign] = relationship(back_populates="streams")
+    offers: Mapped[list["StreamOffer"]] = relationship(
+        back_populates="stream",
+        order_by="StreamOffer.sort_order",
+        cascade="all, delete-orphan",
+    )
+
+
+class StreamOffer(Base):
+    """Binding of a Keitaro offer to a stream: working version plus the published one."""
+
+    __tablename__ = "stream_offers"
+    __table_args__ = (UniqueConstraint("stream_id", "keitaro_offer_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    stream_id: Mapped[int] = mapped_column(ForeignKey("editor_streams.id", ondelete="CASCADE"))
+    keitaro_offer_id: Mapped[int] = mapped_column(Integer)
+    offer_name: Mapped[str] = mapped_column(Text)
+    sort_order: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16))
+    weight: Mapped[int] = mapped_column(Integer)
+    is_pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    published_status: Mapped[str | None] = mapped_column(String(16))
+    published_weight: Mapped[int | None] = mapped_column(Integer)
+
+    stream: Mapped[EditorStream] = relationship(back_populates="offers")
