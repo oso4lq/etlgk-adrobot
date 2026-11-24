@@ -126,4 +126,24 @@ describe('StreamCard', () => {
 
     expect(removed).toEqual([777]);
   });
+
+  it('tells the user when the only found offer is already in the stream', async () => {
+    vi.useFakeTimers();
+    try {
+      fixture = TestBed.createComponent(StreamCard);
+      fixture.componentRef.setInput('stream', makeStream({ hiddenOfferIds: new Set([501]) }));
+      fixture.componentRef.setInput('searchOffers', () => of([{ id: 501, label: '501 — Offer' }]));
+      fixture.detectChanges();
+      const input = element().querySelector('input') as HTMLInputElement;
+      input.value = '501';
+      input.dispatchEvent(new Event('input'));
+      await vi.advanceTimersByTimeAsync(250);
+      fixture.detectChanges();
+
+      const status = element().querySelector('[role="status"]');
+      expect((status?.textContent ?? '').trim()).toBe('Все найденные офферы уже в потоке');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

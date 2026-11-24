@@ -70,6 +70,7 @@
       [search]="searchOffers()"
       [selection]="stream().offerSelection"
       [hiddenIds]="stream().hiddenOfferIds"
+      hiddenText="Все найденные офферы уже в потоке"
       (selectionChange)="offerSelected.emit($event)"
     />
     <div class="actions">

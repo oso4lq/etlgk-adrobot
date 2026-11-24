@@ -25,6 +25,7 @@ interface SuggestionView {
 }
 
 const SEARCH_DEBOUNCE_MILLISECONDS = 250;
+export const NOTHING_FOUND_TEXT = 'Ничего не найдено';
 
 let nextInstanceNumber = 0;
 
@@ -39,6 +40,7 @@ export class Autocomplete {
   readonly search = input.required<AutocompleteSearch>();
   readonly selection = input<AutocompleteOption | null>(null);
   readonly hiddenIds = input<ReadonlySet<number>>(new Set());
+  readonly hiddenText = input('');
   readonly disabled = input(false);
   readonly selectionChange = output<AutocompleteOption | null>();
 
@@ -71,6 +73,16 @@ export class Autocomplete {
   protected readonly errorMessage = computed(() => {
     const message = this.errorText();
     return message === null ? null : `Поиск недоступен: ${message}`;
+  });
+  // A failed search also yields an empty list; the error message already explains it, so "nothing found" would mislead.
+  protected readonly emptyMessage = computed<string | null>(() => {
+    if (!this.isOpen() || this.suggestions().length > 0 || this.errorMessage() !== null) {
+      return null;
+    }
+    if (this.foundOptions().length > 0) {
+      return this.hiddenText() || NOTHING_FOUND_TEXT;
+    }
+    return NOTHING_FOUND_TEXT;
   });
 
   constructor() {
