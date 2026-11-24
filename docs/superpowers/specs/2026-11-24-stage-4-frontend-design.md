@@ -1,6 +1,6 @@
 # Этап 4 — фронтенд на Angular и демо-стенд: дизайн
 
-Дата: 2026-11-24. Статус: черновик, на согласовании у владельца.
+Дата: 2026-11-24. Статус: согласован владельцем 2026-11-24.
 Основа: `CLAUDE.md` (разделы 3, 6, 8, 10), общий дизайн `docs/superpowers/specs/2026-11-18-adrobot-design.md` (раздел 7), `docs/decisions.md`, API бэкенда этапов 2–3 (`backend/app/api/`, `backend/app/schemas/`).
 
 ## 1. Зачем
@@ -162,7 +162,7 @@ Signals:
 - id потоков, по которым идёт запрос;
 - ошибка последнего действия по каждому потоку.
 
-`view = computed(() => toEditorView(...))`. Действия: `open(id)`, `fetch()`, `askForceFetch()`, `confirmForceFetch()`, `dismissForceFetch()`, `addOffer`, `removeOffer`, `bringBack`, `pin`, `unpin`, `push`, `cancel`.
+`view = computed(() => toEditorView(...))`. Действия: `open(id)`, `fetch()`, `requestForceFetch()`, `confirmForceFetch()`, `dismissForceFetch()`, `addOffer`, `removeOffer`, `bringBack`, `pin`, `unpin`, `push`, `cancel`.
 
 ### 6.3. Ошибки HTTP
 

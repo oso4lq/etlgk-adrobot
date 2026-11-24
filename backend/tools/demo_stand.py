@@ -44,7 +44,9 @@ def build_demo_keitaro() -> FakeKeitaroClient:
 
 
 def demo_settings(database_url: str) -> Settings:
-    # `_env_file=None` plus explicit values: neither .env nor OS variables may reach the demo.
+    # `_env_file=None` keeps .env out, and the fields passed below are explicit, so OS variables
+    # cannot override them; other settings (cors_origins, timeouts, cache TTL) may still come from
+    # OS variables.
     return Settings(
         _env_file=None,
         keitaro_base_url="https://keitaro.demo.invalid",
