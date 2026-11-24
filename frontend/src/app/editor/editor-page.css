@@ -1,0 +1,9 @@
+.error {
+  color: #b00020;
+}
+
+.confirm {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  border: 1px solid #8a5a00;
+}

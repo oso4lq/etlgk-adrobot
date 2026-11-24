@@ -1,0 +1,76 @@
+<h2>Create</h2>
+
+<form class="create-form" (submit)="$event.preventDefault(); store.submit()">
+  <div class="field">
+    <label for="campaign-name">Name</label>
+    <input id="campaign-name" type="text" [formField]="store.createForm.name" />
+  </div>
+
+  <div class="field">
+    <label for="campaign-geo">Geo</label>
+    <select id="campaign-geo" [formField]="store.createForm.country">
+      <option value="">Выберите страну</option>
+      @for (option of store.view().countryOptions; track option.code) {
+        <option [value]="option.code">{{ option.label }}</option>
+      }
+    </select>
+  </div>
+
+  <app-autocomplete
+    label="Offer"
+    [search]="store.searchOffers"
+    [selection]="store.offer()"
+    (selectionChange)="store.selectOffer($event)"
+  />
+
+  <button type="submit" [disabled]="store.view().createDisabled">Create</button>
+</form>
+
+@if (store.view().error; as message) {
+  <p class="error" role="alert">{{ message }}</p>
+}
+
+@if (store.view().result; as result) {
+  <section class="result">
+    <h3>{{ result.title }}</h3>
+    <dl>
+      @for (line of result.lines; track line.label) {
+        <dt>{{ line.label }}</dt>
+        <dd>{{ line.value }}</dd>
+      }
+    </dl>
+    <a [href]="result.campaignUrl" target="_blank" rel="noopener">{{ result.campaignUrl }}</a>
+    <a [routerLink]="result.editorLink">Открыть в редакторе</a>
+  </section>
+}
+
+<h3>Созданные кампании</h3>
+@if (store.view().journalError; as message) {
+  <p class="error" role="alert">{{ message }}</p>
+}
+<table class="journal">
+  <thead>
+    <tr>
+      <th>Дата</th>
+      <th>Название</th>
+      <th>Страна</th>
+      <th>Оффер</th>
+      <th>Статус</th>
+      <th>ID в Keitaro</th>
+      <th>Ошибка</th>
+    </tr>
+  </thead>
+  <tbody>
+    @for (row of store.view().journalRows; track $index) {
+      <tr [class.needs-cleanup]="row.needsCleanup">
+        <td>{{ row.createdAt }}</td>
+        <td>{{ row.name }}</td>
+        <td>{{ row.country }}</td>
+        <td>{{ row.offerId }}</td>
+        <td>{{ row.status }}</td>
+        <td>{{ row.keitaroCampaignId }}</td>
+        <td>{{ row.error }}</td>
+      </tr>
+    }
+  </tbody>
+</table>

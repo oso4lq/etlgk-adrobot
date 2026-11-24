@@ -1,0 +1,83 @@
+<section [class]="stream().cssClass">
+  <h3>
+    {{ stream().title }} <small>{{ stream().idLabel }}</small>
+    @if (stream().isDraft) {
+      <em>черновик</em>
+    }
+  </h3>
+
+  @if (stream().hasOffers) {
+    <table class="offers">
+      <tbody>
+        @for (offer of stream().activeOffers; track offer.offerId) {
+          <tr>
+            <td>{{ offer.label }}</td>
+            <td>{{ offer.weightLabel }}</td>
+            <td>
+              @if (offer.isPinned) {
+                <span>закреплён</span>
+              }
+              @if (offer.isUnpublished) {
+                <span>не опубликован</span>
+              }
+            </td>
+            <td>
+              <button type="button" [disabled]="offer.actionsDisabled" (click)="remove.emit(offer.offerId)">Remove</button>
+              @if (offer.isPinned) {
+                <button type="button" [disabled]="offer.actionsDisabled" (click)="unpin.emit(offer.offerId)">Unpin</button>
+              } @else {
+                <button type="button" [disabled]="offer.actionsDisabled" (click)="pin.emit(offer.offerId)">Pin</button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    @if (stream().showTotal) {
+      <p class="total" [class.total--off]="stream().totalIsOff">{{ stream().totalLabel }}</p>
+    }
+
+    @if (stream().showArchive) {
+      <h4>Архив</h4>
+      <table class="offers">
+        <tbody>
+          @for (offer of stream().archivedOffers; track offer.offerId) {
+            <tr class="offer--archived">
+              <td>{{ offer.label }}</td>
+              <td>{{ offer.weightLabel }}</td>
+              <td>
+                <button type="button" [disabled]="offer.actionsDisabled" (click)="bringBack.emit(offer.offerId)">Bring back</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+
+    @for (message of stream().problems; track $index) {
+      <p class="error" role="alert">{{ message }}</p>
+    }
+    @for (message of stream().warnings; track $index) {
+      <p class="warning">{{ message }}</p>
+    }
+    @if (stream().error; as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    }
+
+    <app-autocomplete
+      label="Offer"
+      [search]="searchOffers()"
+      [selection]="stream().offerSelection"
+      [hiddenIds]="stream().hiddenOfferIds"
+      (selectionChange)="offerSelected.emit($event)"
+    />
+    <div class="actions">
+      <button type="button" [disabled]="stream().addDisabled" (click)="add.emit()">Add</button>
+      <button type="button" [disabled]="stream().pushDisabled" (click)="push.emit()">Push to KT</button>
+      <button type="button" [disabled]="stream().cancelDisabled" (click)="cancel.emit()">Cancel</button>
+    </div>
+  } @else {
+    <p>поток без офферов</p>
+  }
+</section>
