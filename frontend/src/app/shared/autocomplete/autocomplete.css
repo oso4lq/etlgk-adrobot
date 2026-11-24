@@ -1,0 +1,40 @@
+.autocomplete {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.autocomplete-error {
+  margin: 0;
+  color: #b00020;
+}
+
+.autocomplete-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 240px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #ccc;
+}
+
+.autocomplete-list button {
+  width: 100%;
+  padding: 6px 8px;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.autocomplete-list button:hover,
+.autocomplete-list button.active {
+  background: #eef3ff;
+}

@@ -1,0 +1,31 @@
+<div class="autocomplete" (focusout)="onFocusOut($event)">
+  <label [for]="inputId">{{ label() }}</label>
+  <input
+    [id]="inputId"
+    type="text"
+    autocomplete="off"
+    [value]="text()"
+    [disabled]="disabled()"
+    (input)="onInput($event)"
+    (focus)="onFocus()"
+    (keydown)="onKeydown($event)"
+  />
+  @if (errorMessage(); as message) {
+    <p class="autocomplete-error">{{ message }}</p>
+  }
+  @if (isListVisible()) {
+    <ul class="autocomplete-list">
+      @for (suggestion of suggestions(); track suggestion.option.id) {
+        <li>
+          <button
+            type="button"
+            [class.active]="suggestion.isActive"
+            (click)="choose(suggestion.option)"
+          >
+            {{ suggestion.option.label }}
+          </button>
+        </li>
+      }
+    </ul>
+  }
+</div>
