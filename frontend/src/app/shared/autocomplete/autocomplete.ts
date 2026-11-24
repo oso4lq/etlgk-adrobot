@@ -88,6 +88,10 @@ export class Autocomplete {
         takeUntilDestroyed(),
       )
       .subscribe((options) => {
+        // A choice made while this search was pending outdates its result; showing it would reopen the list on stale text.
+        if (this.chosenOption !== null) {
+          return;
+        }
         this.foundOptions.set(options);
         this.activeIndex.set(-1);
         this.isOpen.set(true);

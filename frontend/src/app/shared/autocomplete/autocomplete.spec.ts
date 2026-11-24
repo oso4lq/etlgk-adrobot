@@ -165,4 +165,33 @@ describe('Autocomplete', () => {
 
     expect(root.textContent).toContain('Поиск недоступен: Keitaro недоступен');
   });
+
+  it('does not reopen the list when a choice overtakes a pending search', async () => {
+    type('a');
+    await pause();
+    host.requests[0].response.next([alpha]);
+    fixture.detectChanges();
+
+    type('b');
+    (root.querySelector('li button') as HTMLButtonElement).click();
+    await pause();
+    expect(host.requests).toHaveLength(2);
+    host.requests[1].response.next([beta]);
+    fixture.detectChanges();
+
+    expect(suggestionLabels()).toEqual([]);
+    expect(inputElement().value).toBe('Alpha');
+  });
+
+  it('prevents mousedown on the list so the input keeps focus', async () => {
+    type('a');
+    await pause();
+    host.requests[0].response.next([alpha]);
+    fixture.detectChanges();
+
+    const event = new MouseEvent('mousedown', { cancelable: true, bubbles: true });
+    root.querySelector('ul')!.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+  });
 });

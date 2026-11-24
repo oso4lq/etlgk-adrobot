@@ -14,7 +14,7 @@
     <p class="autocomplete-error">{{ message }}</p>
   }
   @if (isListVisible()) {
-    <ul class="autocomplete-list">
+    <ul class="autocomplete-list" (mousedown)="$event.preventDefault()">
       @for (suggestion of suggestions(); track suggestion.option.id) {
         <li>
           <button
