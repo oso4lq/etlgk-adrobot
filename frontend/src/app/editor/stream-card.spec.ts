@@ -64,6 +64,21 @@ describe('StreamCard', () => {
     return undefined;
   }
 
+  function normalizedText(node: Element | null): string {
+    return (node?.textContent ?? '').replace(/\s+/g, ' ').trim();
+  }
+
+  it('separates the id and the draft marker with a space in the heading', () => {
+    render(makeStream({ isDraft: true }));
+    expect(normalizedText(element().querySelector('h3'))).toBe('Stream 10 #10 черновик');
+  });
+
+  it('separates the pinned and unpublished flags with a space', () => {
+    render(makeStream({ activeOffers: [makeRow({ isPinned: true, isUnpublished: true })] }));
+    const flagsCell = element().querySelectorAll('table.offers tbody tr td')[2];
+    expect(normalizedText(flagsCell)).toBe('закреплён не опубликован');
+  });
+
   it('renders a draft stream with the draft class and enabled push', async () => {
     render(
       makeStream({

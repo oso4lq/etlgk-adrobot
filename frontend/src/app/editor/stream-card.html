@@ -1,8 +1,9 @@
 <section [class]="stream().cssClass">
   <h3>
     {{ stream().title }} <small>{{ stream().idLabel }}</small>
+    <!-- &ngsp; — Angular удаляет пробельные узлы между элементами и блоками, а этот пробел сохраняет -->
     @if (stream().isDraft) {
-      <em>черновик</em>
+      &ngsp;<em>черновик</em>
     }
   </h3>
 
@@ -18,7 +19,7 @@
                 <span>закреплён</span>
               }
               @if (offer.isUnpublished) {
-                <span>не опубликован</span>
+                &ngsp;<span>не опубликован</span>
               }
             </td>
             <td>
