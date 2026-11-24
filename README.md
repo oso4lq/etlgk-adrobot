@@ -19,7 +19,7 @@
 ## Требования
 
 - Docker с Compose, **или**
-- Python ≥ 3.12, Node.js 24 (`.nvmrc` — 24.16.0) и pnpm 11 (`corepack enable` подтянет нужную версию).
+- Python ≥ 3.12, Node.js 24 (`frontend/.nvmrc` — 24.16.0) и pnpm 11 (`corepack enable` подтянет нужную версию).
 
 ## Настройка `.env`
 
@@ -34,7 +34,7 @@ cp .env.example .env
 | `KEITARO_BASE_URL` | адрес трекера (обязательна) | — |
 | `KEITARO_API_KEY` | ключ Admin API (обязательна) | — |
 | `KEITARO_TIMEOUT_SECONDS` | таймаут запроса к Keitaro | `10` |
-| `KEITARO_MAX_RETRIES` | повторы запросов на чтение; создание и изменение не повторяются | `2` |
+| `KEITARO_MAX_RETRIES` | повторы запросов: чтение — при ошибках сети, таймаутах и 502/503/504; запись — только если соединение не установилось | `2` |
 | `KEITARO_WRITE_NAME_PREFIX` | писать (создавать, Push) можно только в кампании с таким префиксом имени; пусто — без ограничения. Рекомендуется `test_<ник>_` | пусто |
 | `DATABASE_URL` | строка подключения SQLAlchemy | SQLite `backend/adrobot.db` |
 | `CAMPAIGN_DOMAIN` | домен кампании, по имени или id | пусто |
@@ -58,7 +58,8 @@ docker compose up --build
 
 - `backend` — FastAPI; миграции (`alembic upgrade head`) применяются при каждом старте. Порт наружу не публикуется.
 - `frontend` — nginx: отдаёт Angular и проксирует `/api/` на бэкенд, поэтому CORS не нужен.
-- SQLite лежит в именованном томе `adrobot-data` (`DATABASE_URL` задаёт compose).
+- SQLite лежит в именованном томе `adrobot-data` (`DATABASE_URL` задаёт compose). Реальное имя тома начинается с имени проекта compose, обычно с имени папки, например `etlgk-adrobot_adrobot-data`; найти его можно командой `docker volume ls`.
+- Swagger на порту 8080 недоступен (nginx проксирует только `/api/`); он есть при локальном запуске: http://localhost:8000/docs.
 
 ```bash
 docker compose logs backend     # логи бэкенда
@@ -106,10 +107,19 @@ alembic revision --autogenerate -m "описание"     # новая реви�
 
 ## Тесты и линтеры
 
+Команды по одной в строке, чтобы они работали в любой оболочке (в Windows PowerShell 5.1 нет `&&`). Виртуальное окружение бэкенда должно быть активно.
+
 ```bash
-cd backend && pytest && ruff check .
-cd frontend && pnpm test && pnpm lint && pnpm build
+cd backend
+pytest
+ruff check .
+cd ../frontend
+pnpm test --watch=false
+pnpm lint
+pnpm build
 ```
+
+Без `--watch=false` `ng test` в терминале остаётся в режиме наблюдения и не завершается.
 
 Тесты Keitaro не обращаются к сети (HTTP замокан). На начало этапа 5: бэкенд — 353 теста, фронтенд — 80.
 
@@ -150,7 +160,7 @@ python -m tools.demo_stand [--port 8000]
 - **Выбор кампании** — список кампаний Keitaro с поиском по имени и id («Выбор кампании в редакторе»).
 - **Защита записи префиксом** — `KEITARO_WRITE_NAME_PREFIX` ограничивает создание и Push («Защита от записи в чужие кампании»).
 - **Компенсация** — при сбое создания созданное убирается (потоки, затем кампания), ошибка пишется в журнал («Компенсация при сбое создания»).
-- **История не переписывается** — коммиты остаются как есть, force-push не используется («История не переписывается»).
+- **История не переписывается** — коммиты остаются как есть, force-push не используется («История не переписывается (владелец)»).
 
 ## Как проверялось
 

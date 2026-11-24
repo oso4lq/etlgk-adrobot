@@ -8,7 +8,7 @@ WORKDIR /app
 COPY pyproject.toml alembic.ini ./
 COPY app ./app
 COPY migrations ./migrations
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir . && rm -rf build *.egg-info
 
 RUN useradd --system --no-create-home --uid 10001 adrobot \
     && mkdir /data \
