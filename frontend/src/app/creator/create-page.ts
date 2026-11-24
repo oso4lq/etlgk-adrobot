@@ -1,8 +1,20 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { FormField } from '@angular/forms/signals';
+import { RouterLink } from '@angular/router';
+import { Autocomplete } from '../shared/autocomplete/autocomplete';
+import { CreatorStore } from './creator-store';
 
-// Placeholder: replaced by the real creator page in a later task.
 @Component({
   selector: 'app-create-page',
-  template: '<h2>Create</h2>',
+  imports: [FormField, RouterLink, Autocomplete],
+  providers: [CreatorStore],
+  templateUrl: './create-page.html',
+  styleUrl: './create-page.css',
 })
-export class CreatePage {}
+export class CreatePage {
+  protected readonly store = inject(CreatorStore);
+
+  constructor() {
+    this.store.load();
+  }
+}
