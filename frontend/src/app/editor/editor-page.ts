@@ -1,4 +1,4 @@
-import { Component, effect, inject, input } from '@angular/core';
+import { Component, effect, inject, input, untracked } from '@angular/core';
 import { Router } from '@angular/router';
 import { Autocomplete, AutocompleteOption } from '../shared/autocomplete/autocomplete';
 import { EditorStore } from './editor-store';
@@ -21,7 +21,8 @@ export class EditorPage {
     effect(() => {
       const campaignId = this.campaignId();
       if (campaignId !== undefined) {
-        this.store.open(campaignId);
+        // Only campaignId must trigger a reopen, not signals the store reads while opening.
+        untracked(() => this.store.open(campaignId));
       }
     });
   }

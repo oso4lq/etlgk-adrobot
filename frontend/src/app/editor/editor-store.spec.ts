@@ -342,11 +342,40 @@ describe('EditorStore', () => {
     expect(offerOptions).toEqual([{ id: 18813, label: '18813 — Offer' }]);
   });
 
+  function fetchKeepingDraftOfStream2(): void {
+    store.fetch();
+    http.expectOne('/api/editor/campaigns/1/fetch').flush({
+      campaign: makeCampaign(1, [makeStream(1), makeStream(2, { is_draft: true, can_cancel: true })]),
+      kept_draft_stream_ids: [2],
+      notices: [],
+    });
+  }
+
   it('dismissing the force fetch confirmation closes it', () => {
     openReady();
+    fetchKeepingDraftOfStream2();
     store.requestForceFetch();
+    expect(store.view().forceFetch.confirmOpen).toBe(true);
+
     store.dismissForceFetch();
 
+    expect(store.view().forceFetch.confirmOpen).toBe(false);
+  });
+
+  it('closes the force fetch confirmation after a successful stream action', () => {
+    openReady();
+    fetchKeepingDraftOfStream2();
+    store.requestForceFetch();
+
+    store.cancel(2);
+    http.expectOne('/api/editor/streams/2/cancel').flush(makeStream(2));
+    // The user edits the same stream again: it is a kept draft once more.
+    store.removeOffer(2, 7);
+    http
+      .expectOne('/api/editor/streams/2/offers/7/remove')
+      .flush(makeStream(2, { is_draft: true, can_cancel: true }));
+
+    expect(store.view().forceFetch.offered).toBe(true);
     expect(store.view().forceFetch.confirmOpen).toBe(false);
   });
 });

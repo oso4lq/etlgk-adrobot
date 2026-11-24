@@ -299,10 +299,7 @@ describe('toEditorView', () => {
     );
     const without = toEditorView(makeInput({ campaign }));
 
-    expect(view.notices).toEqual([
-      'Сообщение сервера',
-      'Черновики сохранены в потоках: First, Third',
-    ]);
+    expect(view.notices).toEqual(['Сообщение сервера']);
     expect(view.forceFetch).toEqual({
       offered: true,
       confirmOpen: true,
@@ -324,7 +321,7 @@ describe('toEditorView', () => {
 
     const view = toEditorView(makeInput({ campaign, keptDraftStreamIds: [10, 11, 12] }));
 
-    expect(view.notices).toEqual(['Черновики сохранены в потоках: First, Third']);
+    expect(view.notices).toEqual([]);
     expect(view.forceFetch.offered).toBe(true);
     expect(view.forceFetch.confirmText).toBe(
       'Неопубликованные изменения в потоках First, Third будут потеряны',
@@ -379,7 +376,6 @@ describe('toEditorView', () => {
     expect(stillDraft.notices).toEqual([
       keptNotice.message,
       deletedNotice.message,
-      'Черновики сохранены в потоках: First',
     ]);
     expect(publishedSince.notices).toEqual([deletedNotice.message]);
   });

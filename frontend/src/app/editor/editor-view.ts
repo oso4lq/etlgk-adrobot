@@ -106,9 +106,6 @@ export function toEditorView(input: EditorViewInput): EditorView {
     }
     notices.push(notice.message);
   }
-  if (hasKeptDrafts) {
-    notices.push(`Черновики сохранены в потоках: ${keptDraftList}`);
-  }
 
   const streams: StreamView[] = [];
   if (campaign !== null) {

@@ -219,6 +219,9 @@ export class EditorStore {
         this.replaceStream(stream);
         this.setStreamError(streamId, null);
         onSuccess?.();
+        // Kept ids live until the next fetch; a stale confirmation would reappear unasked when
+        // the same stream becomes a draft again.
+        this.forceFetchConfirmOpen.set(false);
         this.setBusy(streamId, false);
       },
       error: (failure: unknown) => {
