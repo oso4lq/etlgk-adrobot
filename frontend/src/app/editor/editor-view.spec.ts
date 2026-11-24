@@ -239,6 +239,16 @@ describe('toEditorView', () => {
     expect(quiet.error).toBeNull();
   });
 
+  it('shows only the fetch error, not the not-fetched status, for a missing campaign', () => {
+    const view = toEditorView(
+      makeInput({ loadStatus: 'not-fetched', pageError: 'Кампания 99999 не найдена в Keitaro' }),
+    );
+
+    expect(view.statusMessage).toBeNull();
+    expect(view.errorMessage).toBe('Кампания 99999 не найдена в Keitaro');
+    expect(view.showFetchButton).toBe(true);
+  });
+
   it('describes not-fetched, loading, error and idle states', () => {
     const notFetched = toEditorView(makeInput({ loadStatus: 'not-fetched' }));
     const loading = toEditorView(makeInput({ loadStatus: 'loading' }));

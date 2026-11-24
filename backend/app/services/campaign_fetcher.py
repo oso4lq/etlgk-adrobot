@@ -14,9 +14,10 @@ from app.domain.notices import Notice
 from app.domain.offer_bindings import cancel_draft, is_draft, next_sort_order
 from app.domain.offer_sync import RemoteOffer, remote_state, sync_bindings
 from app.keitaro.client import KeitaroClient
+from app.keitaro.errors import KeitaroNotFoundError
 from app.keitaro.models import KeitaroStream
 from app.repositories.editor import EditorRepository
-from app.services.editor_errors import CampaignNotFetchedError
+from app.services.editor_errors import CampaignNotFetchedError, CampaignNotFoundInKeitaroError
 from app.services.offer_catalog import OfferCatalog
 from app.services.remote_offers import remote_offers
 
@@ -54,7 +55,11 @@ class CampaignFetcher:
     def fetch(
         self, repository: EditorRepository, keitaro_campaign_id: int, *, force: bool = False
     ) -> FetchResult:
-        keitaro_campaign = self._client.get_campaign(keitaro_campaign_id)
+        try:
+            keitaro_campaign = self._client.get_campaign(keitaro_campaign_id)
+        except KeitaroNotFoundError as error:
+            # Only the campaign read is translated: a 404 on streams is a different case.
+            raise CampaignNotFoundInKeitaroError(keitaro_campaign_id) from error
         keitaro_streams = self._client.get_campaign_streams(keitaro_campaign_id)
         offer_names = self._offer_catalog.names()
 

@@ -138,6 +138,10 @@ function toStatusMessage(input: EditorViewInput): string | null {
     case 'loading':
       return 'Загрузка…';
     case 'not-fetched':
+      // A failed Fetch explains itself in the error line; the status would repeat it.
+      if (input.pageError !== null) {
+        return null;
+      }
       return `Кампания ${input.campaignId} ещё не загружена в редактор`;
     case 'idle':
       return 'Выберите кампанию';

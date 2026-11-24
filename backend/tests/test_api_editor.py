@@ -92,6 +92,14 @@ def test_get_campaign_before_fetch_is_404(api):
     assert body["message"].startswith("Кампания 777 ещё не загружена")
 
 
+def test_fetch_unknown_campaign_is_404_with_one_clear_message(api):
+    response = api.post("/api/editor/campaigns/99999/fetch")
+    assert response.status_code == 404
+    body = response.json()
+    assert body["code"] == "campaign_not_found_in_keitaro"
+    assert body["message"] == "Кампания 99999 не найдена в Keitaro"
+
+
 def test_get_campaign_after_fetch(api, scene):
     campaign, _, _ = scene
     fetched = fetch(api, campaign)["campaign"]

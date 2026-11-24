@@ -12,6 +12,14 @@ class CampaignNotFetchedError(AppError):
         )
 
 
+class CampaignNotFoundInKeitaroError(AppError):
+    code = "campaign_not_found_in_keitaro"
+    http_status = 404
+
+    def __init__(self, keitaro_campaign_id: int) -> None:
+        super().__init__(f"Кампания {keitaro_campaign_id} не найдена в Keitaro")
+
+
 class StreamNotFoundError(AppError):
     code = "stream_not_found"
     http_status = 404
