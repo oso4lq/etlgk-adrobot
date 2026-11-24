@@ -119,4 +119,67 @@ describe('CreatorStore', () => {
 
     http.expectNone('/api/campaigns');
   });
+
+  describe('create error is tied to the submitted values', () => {
+    const otherOffer = { id: 999, label: '999 — Other offer' };
+
+    function failSubmit(): void {
+      fillForm();
+      store.submit();
+      http
+        .expectOne('/api/campaigns')
+        .flush(
+          { code: 'name_prefix_required', message: 'Название кампании должно начинаться с «test_oso4lq_»' },
+          { status: 422, statusText: 'Unprocessable Entity' },
+        );
+      http.expectOne('/api/created-campaigns').flush([]);
+    }
+
+    it('hides the error once the name is edited', () => {
+      failSubmit();
+      expect(store.view().error).not.toBeNull();
+
+      store.model.set({ name: 'test_oso4lq_y', country: 'AU' });
+
+      expect(store.view().error).toBeNull();
+    });
+
+    it('hides the error once the country is changed', () => {
+      failSubmit();
+
+      store.model.set({ name: '  test_oso4lq_x  ', country: 'DE' });
+
+      expect(store.view().error).toBeNull();
+    });
+
+    it('hides the error once another offer is selected', () => {
+      failSubmit();
+
+      store.selectOffer(otherOffer);
+
+      expect(store.view().error).toBeNull();
+    });
+
+    it('shows the error again when the failed values are restored', () => {
+      failSubmit();
+      store.model.set({ name: 'test_oso4lq_y', country: 'AU' });
+      expect(store.view().error).toBeNull();
+
+      store.model.set({ name: 'test_oso4lq_x', country: 'AU' });
+
+      expect(store.view().error).toBe('Название кампании должно начинаться с «test_oso4lq_»');
+    });
+
+    it('keeps the countries load error visible after the name is edited', () => {
+      store.load();
+      http
+        .expectOne('/api/countries')
+        .flush({ code: 'keitaro_error', message: 'Keitaro недоступен' }, { status: 502, statusText: 'Bad Gateway' });
+      http.expectOne('/api/created-campaigns').flush([]);
+
+      store.model.set({ name: 'test_oso4lq_y', country: '' });
+
+      expect(store.view().error).toBe('Keitaro недоступен');
+    });
+  });
 });

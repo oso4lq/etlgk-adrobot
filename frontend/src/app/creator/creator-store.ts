@@ -8,6 +8,17 @@ import { AutocompleteOption, AutocompleteSearch } from '../shared/autocomplete/a
 import { CreatorApi } from './creator-api';
 import { toCreatorView } from './creator-view';
 
+interface CreateAttempt {
+  name: string;
+  country: string;
+  offerId: number;
+}
+
+interface SubmitFailure {
+  message: string;
+  attempt: CreateAttempt;
+}
+
 @Injectable()
 export class CreatorStore {
   private readonly api = inject(CreatorApi);
@@ -23,7 +34,8 @@ export class CreatorStore {
   private readonly countries = signal<Country[]>([]);
   private readonly submitting = signal(false);
   private readonly result = signal<CreatedCampaign | null>(null);
-  private readonly error = signal<string | null>(null);
+  private readonly loadError = signal<string | null>(null);
+  private readonly submitFailure = signal<SubmitFailure | null>(null);
   private readonly journal = signal<JournalEntry[]>([]);
   private readonly journalError = signal<string | null>(null);
 
@@ -38,6 +50,23 @@ export class CreatorStore {
       }),
     );
 
+  // A create error describes the values that were sent. Once the form differs from that attempt the
+  // message is stale, and it returns if the user restores the same values. Derived rather than cleared
+  // in an effect because signal forms give the store no explicit change events.
+  private readonly visibleError = computed(() => {
+    const failure = this.submitFailure();
+    if (failure === null) {
+      return null;
+    }
+    const model = this.model();
+    const offer = this.offer();
+    const sameAttempt =
+      model.name.trim() === failure.attempt.name &&
+      model.country === failure.attempt.country &&
+      offer?.id === failure.attempt.offerId;
+    return sameAttempt ? failure.message : null;
+  });
+
   readonly view = computed(() =>
     toCreatorView({
       countries: this.countries(),
@@ -47,7 +76,7 @@ export class CreatorStore {
       countryValid: this.createForm.country().valid(),
       submitting: this.submitting(),
       result: this.result(),
-      error: this.error(),
+      error: this.loadError() ?? this.visibleError(),
       journal: this.journal(),
       journalError: this.journalError(),
     }),
@@ -56,7 +85,7 @@ export class CreatorStore {
   load(): void {
     this.api.countries().subscribe({
       next: (countries) => this.countries.set(countries),
-      error: (failure: unknown) => this.error.set(toApiError(failure).message),
+      error: (failure: unknown) => this.loadError.set(toApiError(failure).message),
     });
     this.loadJournal();
   }
@@ -73,24 +102,28 @@ export class CreatorStore {
     this.submitting.set(true);
     // The previous attempt's outcome must not stay on screen next to the new one.
     this.result.set(null);
-    this.error.set(null);
+    this.submitFailure.set(null);
+    const attempt: CreateAttempt = {
+      name: this.model().name.trim(),
+      country: this.model().country,
+      offerId: offer.id,
+    };
     this.api
       .createCampaign({
-        name: this.model().name.trim(),
-        country: this.model().country,
-        offer_id: offer.id,
+        name: attempt.name,
+        country: attempt.country,
+        offer_id: attempt.offerId,
       })
       .subscribe({
         next: (created) => {
           this.result.set(created);
-          this.error.set(null);
           this.model.set({ name: '', country: '' });
           this.offer.set(null);
           this.submitting.set(false);
           this.loadJournal();
         },
         error: (failure: unknown) => {
-          this.error.set(toApiError(failure).message);
+          this.submitFailure.set({ message: toApiError(failure).message, attempt });
           this.submitting.set(false);
           // The backend journals a failed attempt too, so the table must show it.
           this.loadJournal();
