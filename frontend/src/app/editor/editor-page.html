@@ -1,0 +1,56 @@
+<h2>Editor</h2>
+
+<app-autocomplete label="Кампания" [search]="store.searchCampaigns" (selectionChange)="campaignChosen($event)" />
+
+@if (store.view().statusMessage; as message) {
+  <p>{{ message }}</p>
+}
+@if (store.view().errorMessage; as message) {
+  <p class="error" role="alert">{{ message }}</p>
+}
+
+@if (store.view().header; as header) {
+  <header>
+    <h3>{{ header.title }}</h3>
+    <p>{{ header.details }}</p>
+    @if (header.writeForbiddenNote; as note) {
+      <p class="error">{{ note }}</p>
+    }
+  </header>
+}
+
+@if (store.view().showFetchButton) {
+  <button type="button" [disabled]="store.view().fetchDisabled" (click)="store.fetch()">Fetch Streams</button>
+}
+
+@for (notice of store.view().notices; track $index) {
+  <p>{{ notice }}</p>
+}
+
+@if (store.view().forceFetch.offered) {
+  <button type="button" [disabled]="store.view().forceFetch.disabled" (click)="store.requestForceFetch()">
+    Fetch Streams с отбросом черновиков
+  </button>
+}
+@if (store.view().forceFetch.confirmOpen) {
+  <div class="confirm" role="alertdialog" aria-label="Подтверждение">
+    <p>{{ store.view().forceFetch.confirmText }}</p>
+    <button type="button" [disabled]="store.view().forceFetch.disabled" (click)="store.confirmForceFetch()">Отбросить и загрузить</button>
+    <button type="button" (click)="store.dismissForceFetch()">Отмена</button>
+  </div>
+}
+
+@for (stream of store.view().streams; track stream.id) {
+  <app-stream-card
+    [stream]="stream"
+    [searchOffers]="store.searchOffers"
+    (offerSelected)="store.selectOffer(stream.id, $event)"
+    (add)="store.addOffer(stream.id)"
+    (push)="store.push(stream.id)"
+    (cancel)="store.cancel(stream.id)"
+    (remove)="store.removeOffer(stream.id, $event)"
+    (bringBack)="store.bringBackOffer(stream.id, $event)"
+    (pin)="store.pinOffer(stream.id, $event)"
+    (unpin)="store.unpinOffer(stream.id, $event)"
+  />
+}

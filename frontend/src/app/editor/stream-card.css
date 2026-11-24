@@ -1,0 +1,26 @@
+:host {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.offers {
+  border-collapse: collapse;
+}
+
+.offers td {
+  padding: 0.25rem 0.5rem;
+}
+
+.error {
+  color: #b00020;
+}
+
+.warning {
+  color: #8a5a00;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
