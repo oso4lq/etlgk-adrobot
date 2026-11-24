@@ -7,6 +7,7 @@ from app.core.errors import AppError
 from app.db.models import CreatedCampaign, CreationStatus
 from app.domain.alias import generate_alias
 from app.domain.countries import find_country
+from app.domain.write_guard import is_write_allowed
 from app.keitaro.client import KeitaroClient
 from app.keitaro.errors import KeitaroAliasTakenError, KeitaroUnavailableError
 from app.keitaro.models import (
@@ -18,7 +19,7 @@ from app.keitaro.models import (
 )
 from app.repositories.created_campaigns import CreatedCampaignsRepository
 from app.services.creator_references import CreatorReferenceResolver, CreatorReferences
-from app.services.offer_catalog import OfferCatalog
+from app.services.offer_catalog import OfferCatalog, OfferNotFoundError
 
 logger = logging.getLogger("app.creator")
 
@@ -57,14 +58,6 @@ class UnknownCountryError(AppError):
 
     def __init__(self, country_code: str) -> None:
         super().__init__(f"Неизвестный код страны: {country_code}")
-
-
-class OfferNotFoundError(AppError):
-    code = "offer_not_found"
-    http_status = 422
-
-    def __init__(self, offer_id: int) -> None:
-        super().__init__(f"Оффер {offer_id} не найден в Keitaro")
 
 
 class CampaignCreationFailedError(AppError):
@@ -135,7 +128,7 @@ class CampaignCreator:
         if not name:
             raise InvalidCampaignNameError
         prefix = self._settings.keitaro_write_name_prefix
-        if prefix and not name.startswith(prefix):
+        if not is_write_allowed(name, prefix):
             raise NamePrefixRequiredError(prefix)
         country = find_country(request.country)
         if country is None:

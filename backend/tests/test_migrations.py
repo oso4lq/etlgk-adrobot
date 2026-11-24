@@ -33,13 +33,13 @@ def test_migrations_upgrade_and_downgrade(tmp_path):
     url = f"sqlite:///{(folder / 'migrations.db').as_posix()}"
 
     command.upgrade(alembic_config(url), "head")
-    assert current_revision(url) == "0002"
+    assert current_revision(url) == "0003"
 
     command.downgrade(alembic_config(url), "base")
     assert current_revision(url) is None
 
     command.upgrade(alembic_config(url), "head")
-    assert current_revision(url) == "0002"
+    assert current_revision(url) == "0003"
 
 
 def test_migrations_accept_percent_in_database_url(tmp_path, monkeypatch):
@@ -49,7 +49,7 @@ def test_migrations_accept_percent_in_database_url(tmp_path, monkeypatch):
     url = f"sqlite:///{(folder / 'migrations.db').as_posix()}"
     monkeypatch.setenv("DATABASE_URL", url)
     command.upgrade(Config(str(BACKEND_DIR / "alembic.ini")), "head")
-    assert current_revision(url) == "0002"
+    assert current_revision(url) == "0003"
 
 
 def test_database_settings_do_not_require_keitaro(monkeypatch):
@@ -87,6 +87,42 @@ def test_created_campaigns_table_follows_migrations(tmp_path):
     engine = create_engine(url)
     try:
         assert not inspect(engine).has_table("created_campaigns")
+    finally:
+        engine.dispose()
+
+
+def test_editor_tables_follow_migrations(tmp_path):
+    url = f"sqlite:///{(tmp_path / 'm.db').as_posix()}"
+    command.upgrade(alembic_config(url), "head")
+    expected_columns = {
+        "editor_campaigns": {"id", "keitaro_campaign_id", "name", "last_fetched_at"},
+        "editor_streams": {"id", "campaign_id", "keitaro_stream_id", "name", "position"},
+        "stream_offers": {
+            "id",
+            "stream_id",
+            "keitaro_offer_id",
+            "offer_name",
+            "sort_order",
+            "status",
+            "weight",
+            "is_pinned",
+            "published_status",
+            "published_weight",
+        },
+    }
+    engine = create_engine(url)
+    try:
+        for table, columns in expected_columns.items():
+            assert columns == {c["name"] for c in inspect(engine).get_columns(table)}
+    finally:
+        engine.dispose()
+
+    command.downgrade(alembic_config(url), "0002")
+    engine = create_engine(url)
+    try:
+        for table in expected_columns:
+            assert not inspect(engine).has_table(table)
+        assert inspect(engine).has_table("created_campaigns")
     finally:
         engine.dispose()
 

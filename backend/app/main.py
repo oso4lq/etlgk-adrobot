@@ -4,14 +4,18 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import catalog, creator, health
+from app.api import catalog, creator, editor, health
 from app.api.errors import register_error_handlers
 from app.core.config import Settings, get_settings
 from app.db.session import create_db_engine, create_session_factory
 from app.keitaro.client import KeitaroClient, KeitaroHttpClient
+from app.services.campaign_catalog import CampaignCatalog
 from app.services.campaign_creator import CampaignCreator
+from app.services.campaign_fetcher import CampaignFetcher
 from app.services.creator_references import CreatorReferenceResolver
 from app.services.offer_catalog import OfferCatalog
+from app.services.stream_editor import StreamEditor
+from app.services.stream_publisher import StreamPublisher
 
 
 def create_app(
@@ -41,6 +45,10 @@ def create_app(
         CreatorReferenceResolver(keitaro_client, settings),
         settings,
     )
+    app.state.campaign_catalog = CampaignCatalog(keitaro_client)
+    app.state.campaign_fetcher = CampaignFetcher(keitaro_client, app.state.offer_catalog)
+    app.state.stream_editor = StreamEditor(app.state.offer_catalog)
+    app.state.stream_publisher = StreamPublisher(keitaro_client, settings)
 
     app.add_middleware(
         CORSMiddleware,
@@ -51,5 +59,6 @@ def create_app(
     app.include_router(health.router)
     app.include_router(creator.router)
     app.include_router(catalog.router)
+    app.include_router(editor.router)
     register_error_handlers(app)
     return app

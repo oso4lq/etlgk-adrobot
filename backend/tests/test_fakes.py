@@ -89,3 +89,55 @@ def test_fail_after_applying_leaves_the_object_created():
     with pytest.raises(KeitaroUnavailableError):
         fake.create_campaign(NEW_CAMPAIGN)
     assert list(fake.campaigns) == [1]
+
+
+def test_returned_objects_are_copies():
+    fake = FakeKeitaroClient()
+    campaign = fake.add_campaign("test_oso4lq_x")
+    stream = fake.add_stream(campaign.id, "Flow 2", 2, [(18813, 100)])
+    fake.get_stream(stream.id).offers.clear()
+    fake.get_campaign_streams(campaign.id)[0].name = "changed"
+    fake.list_campaigns()[0].name = "changed"
+    fake.get_campaign(campaign.id).name = "changed"
+    fake.list_offers()[0].name = "changed"
+    assert fake.streams[stream.id].offers[0].offer_id == 18813
+    assert fake.streams[stream.id].name == "Flow 2"
+    assert fake.campaigns[campaign.id].name == "test_oso4lq_x"
+    assert fake.offers[0].name == "Test offer 18813"
+
+
+def test_created_and_replaced_results_are_copies_of_stored_objects():
+    fake = FakeKeitaroClient()
+    created, _, offers_stream = make_campaign_with_streams(fake)
+    created.name = "changed"
+    offers_stream.offers.clear()
+    assert fake.campaigns[created.id].name == "c"
+    assert len(fake.streams[offers_stream.id].offers) == 1
+    replaced = fake.replace_stream_offers(offers_stream.id, [StreamOfferShare(18813, 50)])
+    replaced.offers.clear()
+    assert fake.streams[offers_stream.id].offers[0].share == 50
+
+
+def test_arrangement_helpers_are_not_recorded_and_support_disabled_offers():
+    fake = FakeKeitaroClient()
+    fake.add_offer(5, "Five")
+    campaign = fake.add_campaign("test_oso4lq_y")
+    empty = fake.add_stream(campaign.id, "Geo", 1)
+    stream = fake.add_stream(campaign.id, "Flow", 2, [(1, 100)])
+    fake.set_stream_offers(stream.id, [(1, 60), (2, 40, "disabled")])
+    assert fake.calls == []
+    assert campaign.alias == f"fake{campaign.id}"
+    assert (empty.flow_schema, stream.flow_schema) == ("redirect", "landings")
+    assert [offer.state for offer in fake.streams[stream.id].offers] == ["active", "disabled"]
+    assert [offer.share for offer in fake.streams[stream.id].offers] == [60, 40]
+    assert fake.offers[-1].id == 5
+
+
+def test_helpers_share_id_counters_with_create_methods():
+    fake = FakeKeitaroClient()
+    first = fake.add_campaign("a")
+    second = fake.create_campaign(NEW_CAMPAIGN)
+    stream = fake.add_stream(second.id, "s", 1)
+    created = fake.create_offers_stream(NewOffersStream(second.id, "r", 2, ()))
+    assert (first.id, second.id) == (1, 2)
+    assert (stream.id, created.id) == (1, 2)

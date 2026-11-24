@@ -1,5 +1,7 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from itertools import count
+
+from pydantic import BaseModel
 
 from app.keitaro.errors import KeitaroNotFoundError
 from app.keitaro.models import (
@@ -28,6 +30,21 @@ def _stream_offers(offers: Sequence[StreamOfferShare]) -> list[KeitaroStreamOffe
         KeitaroStreamOffer(offer_id=offer.offer_id, share=offer.share, state="active")
         for offer in offers
     ]
+
+
+def _copies[T: BaseModel](items: Iterable[T]) -> list[T]:
+    # Deep copies keep a caller's mutations from silently changing the fake's "Keitaro" state.
+    return [item.model_copy(deep=True) for item in items]
+
+
+def _arranged_offers(
+    offers: Sequence[tuple[int, int] | tuple[int, int, str]],
+) -> list[KeitaroStreamOffer]:
+    arranged = []
+    for offer in offers:
+        state = offer[2] if len(offer) == 3 else "active"
+        arranged.append(KeitaroStreamOffer(offer_id=offer[0], share=offer[1], state=state))
+    return arranged
 
 
 class FakeKeitaroClient:
@@ -74,23 +91,25 @@ class FakeKeitaroClient:
         return result
 
     def list_offers(self) -> list[KeitaroOffer]:
-        return self._run("list_offers", (), lambda: list(self.offers))
+        return self._run("list_offers", (), lambda: _copies(self.offers))
 
     def list_domains(self) -> list[KeitaroDomain]:
-        return self._run("list_domains", (), lambda: list(self.domains))
+        return self._run("list_domains", (), lambda: _copies(self.domains))
 
     def list_campaign_groups(self) -> list[KeitaroGroup]:
-        return self._run("list_campaign_groups", (), lambda: list(self.groups))
+        return self._run("list_campaign_groups", (), lambda: _copies(self.groups))
 
     def list_traffic_sources(self) -> list[KeitaroTrafficSource]:
-        return self._run("list_traffic_sources", (), lambda: list(self.traffic_sources))
+        return self._run("list_traffic_sources", (), lambda: _copies(self.traffic_sources))
 
     def list_campaigns(self) -> list[KeitaroCampaign]:
         # Archived campaigns are not listed, as in real Keitaro (decisions В7).
         return self._run(
             "list_campaigns",
             (),
-            lambda: [c for c in self.campaigns.values() if c.state != DELETED],
+            lambda: [
+                c.model_copy(deep=True) for c in self.campaigns.values() if c.state != DELETED
+            ],
         )
 
     def get_campaign(self, campaign_id: int) -> KeitaroCampaign:
@@ -98,7 +117,7 @@ class FakeKeitaroClient:
             campaign = self.campaigns.get(campaign_id)
             if campaign is None or campaign.state == DELETED:
                 raise _not_found()
-            return campaign
+            return campaign.model_copy(deep=True)
 
         return self._run("get_campaign", (campaign_id,), apply)
 
@@ -109,7 +128,8 @@ class FakeKeitaroClient:
                 for stream in self.streams.values()
                 if stream.campaign_id == campaign_id and stream.state != DELETED
             ]
-            return sorted(found, key=lambda stream: stream.position)
+            ordered = sorted(found, key=lambda stream: stream.position)
+            return _copies(ordered)
 
         return self._run("get_campaign_streams", (campaign_id,), apply)
 
@@ -118,7 +138,7 @@ class FakeKeitaroClient:
             stream = self.streams.get(stream_id)
             if stream is None:
                 raise _not_found()
-            return stream
+            return stream.model_copy(deep=True)
 
         return self._run("get_stream", (stream_id,), apply)
 
@@ -136,7 +156,7 @@ class FakeKeitaroClient:
                 traffic_source_id=campaign.traffic_source_id,
             )
             self.campaigns[created.id] = created
-            return created
+            return created.model_copy(deep=True)
 
         return self._run("create_campaign", (campaign.alias,), apply)
 
@@ -164,7 +184,7 @@ class FakeKeitaroClient:
             if stream is None:
                 raise _not_found()
             stream.offers = _stream_offers(offers)
-            return stream
+            return stream.model_copy(deep=True)
 
         return self._run("replace_stream_offers", (stream_id, tuple(offers)), apply)
 
@@ -185,6 +205,54 @@ class FakeKeitaroClient:
             campaign.state = DELETED
 
         self._run("archive_campaign", (campaign_id,), apply)
+
+    # Arrangement helpers: set the scene without being recorded in `calls`.
+
+    def add_offer(self, offer_id: int, name: str) -> None:
+        self.offers.append(KeitaroOffer(id=offer_id, name=name, state="active"))
+
+    def add_campaign(self, name: str) -> KeitaroCampaign:
+        campaign_id = next(self._campaign_ids)
+        created = KeitaroCampaign(
+            id=campaign_id,
+            name=name,
+            alias=f"fake{campaign_id}",
+            type="position",
+            state="active",
+            domain=self.campaign_domain,
+            domain_id=self.domains[0].id,
+            group_id=self.groups[0].id,
+            traffic_source_id=self.traffic_sources[0].id,
+        )
+        self.campaigns[campaign_id] = created
+        return created.model_copy(deep=True)
+
+    def add_stream(
+        self,
+        campaign_id: int,
+        name: str,
+        position: int,
+        offers: Sequence[tuple[int, int] | tuple[int, int, str]] = (),
+    ) -> KeitaroStream:
+        created = KeitaroStream(
+            id=next(self._stream_ids),
+            campaign_id=campaign_id,
+            name=name,
+            type="regular",
+            position=position,
+            state="active",
+            schema="landings" if offers else "redirect",
+            action_type="http",
+            offers=_arranged_offers(offers),
+        )
+        self.streams[created.id] = created
+        return created.model_copy(deep=True)
+
+    def set_stream_offers(
+        self, stream_id: int, offers: Sequence[tuple[int, int] | tuple[int, int, str]]
+    ) -> None:
+        """Models a manual edit in the Keitaro admin."""
+        self.streams[stream_id].offers = _arranged_offers(offers)
 
     def close(self) -> None:
         self.calls.append(("close",))
@@ -209,4 +277,4 @@ class FakeKeitaroClient:
             offers=_stream_offers(offers),
         )
         self.streams[created.id] = created
-        return created
+        return created.model_copy(deep=True)

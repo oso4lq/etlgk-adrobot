@@ -30,7 +30,14 @@ SECRET_PLACEHOLDER = "***"
 TRACKER_PLACEHOLDER = "tracker.example.com"
 
 
-def _compare(reference: Any, candidate: Any, path: str, ignored: set[str]) -> list[str]:
+def compare_values(
+    reference: Any,
+    candidate: Any,
+    path: str,
+    ignored: set[str],
+    nested_ignored: set[str] = NESTED_IGNORED_FIELDS,
+) -> list[str]:
+    """Field-by-field difference lines; `ignored` applies to this level, `nested_ignored` below."""
     if isinstance(reference, dict) and isinstance(candidate, dict):
         lines: list[str] = []
         for key, reference_value in reference.items():
@@ -39,8 +46,8 @@ def _compare(reference: Any, candidate: Any, path: str, ignored: set[str]) -> li
             if key not in candidate:
                 lines.append(f"{path}.{key}: нет в проверяемой")
                 continue
-            lines += _compare(
-                reference_value, candidate[key], f"{path}.{key}", NESTED_IGNORED_FIELDS
+            lines += compare_values(
+                reference_value, candidate[key], f"{path}.{key}", nested_ignored, nested_ignored
             )
         for key in candidate:
             if key not in reference and key not in ignored:
@@ -55,7 +62,9 @@ def _compare(reference: Any, candidate: Any, path: str, ignored: set[str]) -> li
             elif index >= len(reference):
                 lines.append(f"{item_path}: нет в эталоне")
             else:
-                lines += _compare(reference[index], candidate[index], item_path, ignored)
+                lines += compare_values(
+                    reference[index], candidate[index], item_path, ignored, nested_ignored
+                )
         return lines
     if reference != candidate:
         return [f"{path}: эталон {reference!r}, проверяемая {candidate!r}"]
@@ -68,7 +77,9 @@ def campaign_differences(
     candidate_campaign: dict,
     candidate_streams: list[dict],
 ) -> list[str]:
-    lines = _compare(reference_campaign, candidate_campaign, "campaign", CAMPAIGN_IGNORED_FIELDS)
+    lines = compare_values(
+        reference_campaign, candidate_campaign, "campaign", CAMPAIGN_IGNORED_FIELDS
+    )
     # Position, not id or order of the answer, identifies "the same" stream in two campaigns.
     reference_by_position = {stream["position"]: stream for stream in reference_streams}
     candidate_by_position = {stream["position"]: stream for stream in candidate_streams}
@@ -79,7 +90,7 @@ def campaign_differences(
         elif position not in reference_by_position:
             lines.append(f"{label}: нет в эталоне")
         else:
-            lines += _compare(
+            lines += compare_values(
                 reference_by_position[position],
                 candidate_by_position[position],
                 label,

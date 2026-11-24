@@ -10,11 +10,10 @@ from app.services.campaign_creator import (
     CampaignRequest,
     InvalidCampaignNameError,
     NamePrefixRequiredError,
-    OfferNotFoundError,
     UnknownCountryError,
 )
 from app.services.creator_references import CreatorMisconfiguredError, CreatorReferenceResolver
-from app.services.offer_catalog import OfferCatalog
+from app.services.offer_catalog import OfferCatalog, OfferNotFoundError
 
 
 def writes_of(fake):
