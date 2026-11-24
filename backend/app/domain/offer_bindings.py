@@ -113,8 +113,12 @@ def pin(bindings: Sequence[OfferBinding], binding: OfferBinding) -> None:
     binding.is_pinned = True
 
 
-def unpin(binding: OfferBinding) -> None:
+def unpin(bindings: Sequence[OfferBinding], binding: OfferBinding) -> None:
     binding.is_pinned = False
+    # Without this the "unpin an offer" hint does not lead out of the "sum is not 100"
+    # problem: the weights would stay as they were. With sum 100 nothing is touched.
+    if active_total(_slots(_in_order(bindings))) != FULL_WEIGHT:
+        recalculate(bindings)
 
 
 def cancel_draft(bindings: Sequence[OfferBinding]) -> list[OfferBinding]:

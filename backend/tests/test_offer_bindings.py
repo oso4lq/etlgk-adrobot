@@ -100,10 +100,25 @@ def test_pin_and_unpin_change_neither_weights_nor_draft_state():
     assert bindings[0].is_pinned
     assert [b.weight for b in bindings] == [50, 50]
     assert not is_draft(bindings)
-    unpin(bindings[0])
+    unpin(bindings, bindings[0])
     assert not bindings[0].is_pinned
     assert [b.weight for b in bindings] == [50, 50]
     assert not is_draft(bindings)
+
+
+def test_unpin_recalculates_when_all_pinned_and_sum_is_not_100():
+    bindings = [published(offer_id, 25, offer_id - 1, pinned=True) for offer_id in (1, 2, 3)]
+    unpin(bindings, bindings[0])
+    assert bindings[0].is_pinned is False
+    assert [b.weight for b in bindings] == [50, 25, 25]
+    assert is_draft(bindings) is True
+    assert stream_notices(bindings).problems == []
+
+
+def test_unpin_recalculates_when_pinned_exceed_100():
+    bindings = [published(1, 60, 0, pinned=True), published(2, 50, 1, pinned=True)]
+    unpin(bindings, bindings[1])
+    assert [b.weight for b in bindings] == [60, 40]
 
 
 def test_pin_over_100_is_rejected():
