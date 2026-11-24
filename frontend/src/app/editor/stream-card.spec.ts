@@ -64,6 +64,21 @@ describe('StreamCard', () => {
     return undefined;
   }
 
+  function normalizedText(node: Element | null): string {
+    return (node?.textContent ?? '').replace(/\s+/g, ' ').trim();
+  }
+
+  it('separates the id and the draft marker with a space in the heading', () => {
+    render(makeStream({ isDraft: true }));
+    expect(normalizedText(element().querySelector('h3'))).toBe('Stream 10 #10 черновик');
+  });
+
+  it('separates the pinned and unpublished flags with a space', () => {
+    render(makeStream({ activeOffers: [makeRow({ isPinned: true, isUnpublished: true })] }));
+    const flagsCell = element().querySelectorAll('table.offers tbody tr td')[2];
+    expect(normalizedText(flagsCell)).toBe('закреплён не опубликован');
+  });
+
   it('renders a draft stream with the draft class and enabled push', async () => {
     render(
       makeStream({
@@ -125,5 +140,25 @@ describe('StreamCard', () => {
     buttonByText('Remove')?.click();
 
     expect(removed).toEqual([777]);
+  });
+
+  it('tells the user when the only found offer is already in the stream', async () => {
+    vi.useFakeTimers();
+    try {
+      fixture = TestBed.createComponent(StreamCard);
+      fixture.componentRef.setInput('stream', makeStream({ hiddenOfferIds: new Set([501]) }));
+      fixture.componentRef.setInput('searchOffers', () => of([{ id: 501, label: '501 — Offer' }]));
+      fixture.detectChanges();
+      const input = element().querySelector('input') as HTMLInputElement;
+      input.value = '501';
+      input.dispatchEvent(new Event('input'));
+      await vi.advanceTimersByTimeAsync(250);
+      fixture.detectChanges();
+
+      const status = element().querySelector('[role="status"]');
+      expect((status?.textContent ?? '').trim()).toBe('Все найденные офферы уже в потоке');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

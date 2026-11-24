@@ -70,9 +70,7 @@ class StreamEditor:
     def unpin_offer(
         self, repository: EditorRepository, keitaro_stream_id: int, offer_id: int
     ) -> EditorStream:
-        stream = self._load_stream(repository, keitaro_stream_id)
-        offer_bindings.unpin(self._require_binding(stream, offer_id))
-        return self._commit(repository, stream)
+        return self._apply(repository, keitaro_stream_id, offer_id, offer_bindings.unpin)
 
     def cancel(self, repository: EditorRepository, keitaro_stream_id: int) -> EditorStream:
         stream = self._load_stream(repository, keitaro_stream_id)

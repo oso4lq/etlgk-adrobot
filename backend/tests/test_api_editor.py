@@ -92,6 +92,14 @@ def test_get_campaign_before_fetch_is_404(api):
     assert body["message"].startswith("Кампания 777 ещё не загружена")
 
 
+def test_fetch_unknown_campaign_is_404_with_one_clear_message(api):
+    response = api.post("/api/editor/campaigns/99999/fetch")
+    assert response.status_code == 404
+    body = response.json()
+    assert body["code"] == "campaign_not_found_in_keitaro"
+    assert body["message"] == "Кампания 99999 не найдена в Keitaro"
+
+
 def test_get_campaign_after_fetch(api, scene):
     campaign, _, _ = scene
     fetched = fetch(api, campaign)["campaign"]
@@ -129,6 +137,20 @@ def test_remove_bring_back_pin_unpin_endpoints(api, scene):
     assert pinned["offers"][0]["is_pinned"] is True
     unpinned = api.post(offers_url(flow_two, "/1001/unpin")).json()
     assert unpinned["offers"][0]["is_pinned"] is False
+
+
+def test_unpin_with_sum_not_100_returns_recalculated_weights(api, fake):
+    for offer_id in range(1001, 1004):
+        fake.add_offer(offer_id, f"Offer {offer_id}")
+    campaign = fake.add_campaign("test_oso4lq_unpin_api")
+    flow = fake.add_stream(campaign.id, "Flow", 1, [(1001, 25), (1002, 25), (1003, 25)])
+    fetch(api, campaign)
+    for offer_id in (1001, 1002, 1003):
+        api.post(offers_url(flow, f"/{offer_id}/pin"))
+    body = api.post(offers_url(flow, "/1001/unpin")).json()
+    assert weights(body) == {1001: 50, 1002: 25, 1003: 25}
+    assert body["is_draft"] is True
+    assert body["problems"] == []
 
 
 def test_push_and_cancel_endpoints(api, fake, scene):

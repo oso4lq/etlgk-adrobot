@@ -25,6 +25,11 @@
   display: block;
 }
 
+.journal-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
 .journal {
   border-collapse: collapse;
 }

@@ -128,6 +128,26 @@ def test_bring_back_keeps_pinned_weight(editor, editor_repository, db_session, f
     ]
 
 
+def test_unpin_with_sum_not_100_recalculates_and_makes_stream_draft(
+    editor, editor_repository, db_session, fake, offer_catalog
+):
+    for offer_id in range(1001, 1004):
+        fake.add_offer(offer_id, f"Offer {offer_id}")
+    campaign = fake.add_campaign("test_oso4lq_unpin")
+    flow = fake.add_stream(campaign.id, "Flow", 1, [(1001, 25), (1002, 25), (1003, 25)])
+    CampaignFetcher(fake, offer_catalog).fetch(editor_repository, campaign.id)
+    for offer_id in (1001, 1002, 1003):
+        editor.pin_offer(editor_repository, flow.id, offer_id)
+    editor.unpin_offer(editor_repository, flow.id, 1001)
+    stream = reload_stream(db_session, editor_repository, flow.id)
+    assert state(stream) == [
+        (1001, "active", 50, False),
+        (1002, "active", 25, True),
+        (1003, "active", 25, True),
+    ]
+    assert is_draft(stream.offers)
+
+
 def test_pin_and_unpin_keep_weights_and_stream_clean(editor, editor_repository, db_session, scene):
     _, _, flow_two = scene
     editor.pin_offer(editor_repository, flow_two.id, 1001)

@@ -100,10 +100,32 @@ def test_pin_and_unpin_change_neither_weights_nor_draft_state():
     assert bindings[0].is_pinned
     assert [b.weight for b in bindings] == [50, 50]
     assert not is_draft(bindings)
-    unpin(bindings[0])
+    unpin(bindings, bindings[0])
     assert not bindings[0].is_pinned
     assert [b.weight for b in bindings] == [50, 50]
     assert not is_draft(bindings)
+
+
+def test_unpin_recalculates_when_all_pinned_and_sum_is_not_100():
+    bindings = [published(offer_id, 25, offer_id - 1, pinned=True) for offer_id in (1, 2, 3)]
+    unpin(bindings, bindings[0])
+    assert bindings[0].is_pinned is False
+    assert [b.weight for b in bindings] == [50, 25, 25]
+    assert is_draft(bindings) is True
+    assert stream_notices(bindings).problems == []
+
+
+def test_unpin_of_not_pinned_offer_changes_nothing():
+    bindings = [published(1, 30, 0), published(2, 30, 1)]
+    unpin(bindings, bindings[0])
+    assert [b.weight for b in bindings] == [30, 30]
+    assert is_draft(bindings) is False
+
+
+def test_unpin_recalculates_when_pinned_exceed_100():
+    bindings = [published(1, 60, 0, pinned=True), published(2, 50, 1, pinned=True)]
+    unpin(bindings, bindings[1])
+    assert [b.weight for b in bindings] == [60, 40]
 
 
 def test_pin_over_100_is_rejected():
@@ -189,6 +211,22 @@ def test_notices_fetched_sum_not_100():
             "weights_sum_not_100",
             "Сумма весов 50%, нужно 100% — "
             "веса пересчитаются при добавлении, удалении или возврате оффера",
+        )
+    ]
+
+
+def test_notices_advice_mentions_unpin_when_an_active_offer_is_pinned():
+    bindings = [
+        published(1, 25, 0),
+        published(2, 25, 1, pinned=True),
+        published(3, 25, 2, pinned=True),
+    ]
+    notices = stream_notices(bindings)
+    assert [(n.code, n.message) for n in notices.problems] == [
+        (
+            "weights_sum_not_100",
+            "Сумма весов 75%, нужно 100% — "
+            "веса пересчитаются при добавлении, удалении, возврате или откреплении оффера",
         )
     ]
 

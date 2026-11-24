@@ -1,8 +1,9 @@
 <section [class]="stream().cssClass">
   <h3>
     {{ stream().title }} <small>{{ stream().idLabel }}</small>
+    <!-- &ngsp; — Angular drops whitespace-only text between elements and blocks; this keeps the space -->
     @if (stream().isDraft) {
-      <em>черновик</em>
+      &ngsp;<em>черновик</em>
     }
   </h3>
 
@@ -18,7 +19,7 @@
                 <span>закреплён</span>
               }
               @if (offer.isUnpublished) {
-                <span>не опубликован</span>
+                &ngsp;<span>не опубликован</span>
               }
             </td>
             <td>
@@ -70,6 +71,7 @@
       [search]="searchOffers()"
       [selection]="stream().offerSelection"
       [hiddenIds]="stream().hiddenOfferIds"
+      hiddenText="Все найденные офферы уже в потоке"
       (selectionChange)="offerSelected.emit($event)"
     />
     <div class="actions">

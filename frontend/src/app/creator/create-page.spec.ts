@@ -55,6 +55,10 @@ describe('CreatePage', () => {
     expect(createButton().disabled).toBe(true);
   });
 
+  it('keeps the journal table inside its own horizontally scrollable block', () => {
+    expect(element().querySelector('.journal-scroll > table.journal')).not.toBeNull();
+  });
+
   it('shows the result block with an editor link after creation', async () => {
     const input = element().querySelector('input[type="text"]') as HTMLInputElement;
     input.value = 'test_oso4lq_x';

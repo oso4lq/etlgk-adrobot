@@ -2,9 +2,9 @@ import pytest
 
 from app.db.models import EditorCampaign, StreamOffer
 from app.domain.offer_bindings import is_draft
-from app.keitaro.errors import KeitaroNotFoundError, KeitaroUnavailableError
+from app.keitaro.errors import KeitaroUnavailableError
 from app.services.campaign_fetcher import CampaignFetcher
-from app.services.editor_errors import CampaignNotFetchedError
+from app.services.editor_errors import CampaignNotFetchedError, CampaignNotFoundInKeitaroError
 from app.services.offer_catalog import OfferCatalog
 
 
@@ -209,8 +209,9 @@ def test_fetch_offer_unknown_to_catalog_gets_fallback_name(
 
 
 def test_fetch_unknown_campaign_writes_nothing(fetcher, editor_repository, db_session):
-    with pytest.raises(KeitaroNotFoundError):
+    with pytest.raises(CampaignNotFoundInKeitaroError) as raised:
         fetcher.fetch(editor_repository, 999)
+    assert str(raised.value) == "Кампания 999 не найдена в Keitaro"
     db_session.expire_all()
     assert db_session.query(EditorCampaign).count() == 0
 

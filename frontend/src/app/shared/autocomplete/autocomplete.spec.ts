@@ -12,6 +12,7 @@ import { Autocomplete, AutocompleteOption } from './autocomplete';
       [search]="search"
       [selection]="selection()"
       [hiddenIds]="hiddenIds()"
+      [hiddenText]="hiddenText()"
       (selectionChange)="changes.push($event)"
     />
   `,
@@ -19,6 +20,7 @@ import { Autocomplete, AutocompleteOption } from './autocomplete';
 class HostComponent {
   readonly selection = signal<AutocompleteOption | null>(null);
   readonly hiddenIds = signal<ReadonlySet<number>>(new Set());
+  readonly hiddenText = signal('');
   readonly changes: (AutocompleteOption | null)[] = [];
   readonly requests: { query: string; response: Subject<AutocompleteOption[]> }[] = [];
 
@@ -59,6 +61,11 @@ describe('Autocomplete', () => {
       labels.push((button.textContent ?? '').trim());
     }
     return labels;
+  }
+
+  function statusText(): string | null {
+    const status = root.querySelector('[role="status"]');
+    return status === null ? null : (status.textContent ?? '').trim();
   }
 
   beforeEach(() => {
@@ -203,5 +210,79 @@ describe('Autocomplete', () => {
     fixture.detectChanges();
 
     expect(suggestionLabels()).toEqual([]);
+  });
+
+  describe('empty result message', () => {
+    async function searchWith(options: AutocompleteOption[]): Promise<void> {
+      type('99999');
+      await pause();
+      host.requests[0].response.next(options);
+      fixture.detectChanges();
+    }
+
+    it('says nothing was found when the search returns no options', async () => {
+      await searchWith([]);
+
+      expect(statusText()).toBe('Ничего не найдено');
+      expect(suggestionLabels()).toEqual([]);
+    });
+
+    it('shows hiddenText when every found option is hidden', async () => {
+      host.hiddenText.set('Все найденные офферы уже в потоке');
+      host.hiddenIds.set(new Set([1]));
+      fixture.detectChanges();
+      await searchWith([alpha]);
+
+      expect(statusText()).toBe('Все найденные офферы уже в потоке');
+    });
+
+    it('falls back to the default text when every option is hidden and no hiddenText is given', async () => {
+      host.hiddenIds.set(new Set([1]));
+      fixture.detectChanges();
+      await searchWith([alpha]);
+
+      expect(statusText()).toBe('Ничего не найдено');
+    });
+
+    it('shows only the error when the search fails', async () => {
+      type('a');
+      await pause();
+      host.requests[0].response.error(
+        new HttpErrorResponse({
+          status: 503,
+          error: { code: 'keitaro_unavailable', message: 'Keitaro недоступен' },
+        }),
+      );
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('Поиск недоступен');
+      expect(root.textContent).not.toContain('Ничего не найдено');
+      expect(statusText()).toBeNull();
+    });
+
+    it('hides the message after the field loses focus', async () => {
+      await searchWith([]);
+      inputElement().dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+      fixture.detectChanges();
+
+      expect(statusText()).toBeNull();
+    });
+
+    it('hides the message after Escape', async () => {
+      await searchWith([]);
+      inputElement().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      fixture.detectChanges();
+
+      expect(statusText()).toBeNull();
+    });
+
+    it('shows no message while at least one option is visible', async () => {
+      host.hiddenIds.set(new Set([1]));
+      fixture.detectChanges();
+      await searchWith([alpha, beta]);
+
+      expect(statusText()).toBeNull();
+      expect(suggestionLabels()).toEqual(['Beta']);
+    });
   });
 });
