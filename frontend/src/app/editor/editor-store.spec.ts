@@ -109,7 +109,7 @@ describe('EditorStore', () => {
     expect(plain.request.method).toBe('POST');
     expect(plain.request.params.has('force')).toBe(false);
     plain.flush({
-      campaign: makeCampaign(1, [makeStream(1), makeStream(2)]),
+      campaign: makeCampaign(1, [makeStream(1), makeStream(2, { is_draft: true })]),
       kept_draft_stream_ids: [2],
       notices: [{ code: 'x', message: 'Что-то произошло' }],
     });

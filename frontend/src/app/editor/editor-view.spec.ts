@@ -283,9 +283,9 @@ describe('toEditorView', () => {
 
   it('offers a forced fetch naming the streams with kept drafts', () => {
     const campaign = makeCampaign([
-      makeStream({ keitaro_stream_id: 10, name: 'First' }),
-      makeStream({ keitaro_stream_id: 11, name: 'Second' }),
-      makeStream({ keitaro_stream_id: 12, name: 'Third' }),
+      makeStream({ keitaro_stream_id: 10, name: 'First', is_draft: true }),
+      makeStream({ keitaro_stream_id: 11, name: 'Second', is_draft: true }),
+      makeStream({ keitaro_stream_id: 12, name: 'Third', is_draft: true }),
     ]);
     const notice: ApiNotice = { code: 'x', message: 'Сообщение сервера' };
 
@@ -314,10 +314,42 @@ describe('toEditorView', () => {
     expect(without.forceFetch.confirmOpen).toBe(false);
   });
 
+  it('names only kept streams that are still drafts', () => {
+    // Stream 11 was pushed after the fetch kept its draft: nothing of it can be lost any more.
+    const campaign = makeCampaign([
+      makeStream({ keitaro_stream_id: 10, name: 'First', is_draft: true }),
+      makeStream({ keitaro_stream_id: 11, name: 'Second', is_draft: false }),
+      makeStream({ keitaro_stream_id: 12, name: 'Third', is_draft: true }),
+    ]);
+
+    const view = toEditorView(makeInput({ campaign, keptDraftStreamIds: [10, 11, 12] }));
+
+    expect(view.notices).toEqual(['Черновики сохранены в потоках: First, Third']);
+    expect(view.forceFetch.offered).toBe(true);
+    expect(view.forceFetch.confirmText).toBe(
+      'Неопубликованные изменения в потоках First, Third будут потеряны',
+    );
+  });
+
+  it('drops the kept-draft notice and the forced fetch once no kept stream is a draft', () => {
+    // The fetch kept the draft of stream 10, then the user pushed or cancelled it.
+    const campaign = makeCampaign([
+      makeStream({ keitaro_stream_id: 10, name: 'First', is_draft: false }),
+    ]);
+
+    const view = toEditorView(
+      makeInput({ campaign, keptDraftStreamIds: [10], forceFetchConfirmOpen: true }),
+    );
+
+    expect(view.notices).toEqual([]);
+    expect(view.forceFetch.offered).toBe(false);
+    expect(view.forceFetch.confirmOpen).toBe(false);
+  });
+
   it('disables the forced fetch like Fetch', () => {
     const view = toEditorView(
       makeInput({
-        campaign: makeCampaign([makeStream()]),
+        campaign: makeCampaign([makeStream({ is_draft: true })]),
         keptDraftStreamIds: [10],
         fetching: true,
       }),

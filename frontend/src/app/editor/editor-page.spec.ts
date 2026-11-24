@@ -43,6 +43,27 @@ describe('EditorPage', () => {
     };
   }
 
+  // A fetch reports a kept draft only for a stream that is still a draft in its answer.
+  function campaignWithDraftStream(streamId: number): object {
+    return {
+      ...emptyCampaign(),
+      streams: [
+        {
+          keitaro_stream_id: streamId,
+          name: 'Offers',
+          position: 1,
+          has_offers: true,
+          is_draft: true,
+          can_push: true,
+          can_cancel: true,
+          offers: [],
+          problems: [],
+          warnings: [],
+        },
+      ],
+    };
+  }
+
   it('shows Fetch Streams for a campaign that was not fetched', async () => {
     fixture.componentRef.setInput('campaignId', '7');
     fixture.detectChanges();
@@ -66,7 +87,7 @@ describe('EditorPage', () => {
     buttonByText('Fetch Streams')?.click();
     http
       .expectOne('/api/editor/campaigns/7/fetch')
-      .flush({ campaign: emptyCampaign(), kept_draft_stream_ids: [3], notices: [] });
+      .flush({ campaign: campaignWithDraftStream(3), kept_draft_stream_ids: [3], notices: [] });
     await fixture.whenStable();
 
     buttonByText('Fetch Streams с отбросом черновиков')?.click();

@@ -92,14 +92,15 @@ export function parseCampaignId(raw: string | undefined): number | null {
 export function toEditorView(input: EditorViewInput): EditorView {
   const campaign = input.campaign;
   const fetchDisabled = input.fetching || input.busyStreamIds.size > 0;
-  const keptDraftNames = namesOfStreams(campaign, input.keptDraftStreamIds);
+  const keptDraftNames = namesOfStillDraftStreams(campaign, input.keptDraftStreamIds);
   const keptDraftList = keptDraftNames.join(', ');
+  const hasKeptDrafts = keptDraftNames.length > 0;
 
   const notices: string[] = [];
   for (const notice of input.fetchNotices) {
     notices.push(notice.message);
   }
-  if (input.keptDraftStreamIds.length > 0) {
+  if (hasKeptDrafts) {
     notices.push(`Черновики сохранены в потоках: ${keptDraftList}`);
   }
 
@@ -120,8 +121,8 @@ export function toEditorView(input: EditorViewInput): EditorView {
     fetchDisabled,
     notices,
     forceFetch: {
-      offered: input.keptDraftStreamIds.length > 0,
-      confirmOpen: input.forceFetchConfirmOpen,
+      offered: hasKeptDrafts,
+      confirmOpen: hasKeptDrafts && input.forceFetchConfirmOpen,
       confirmText: `Неопубликованные изменения в потоках ${keptDraftList} будут потеряны`,
       disabled: fetchDisabled,
     },
@@ -155,8 +156,13 @@ function toHeaderView(campaign: EditorCampaign): CampaignHeaderView {
   };
 }
 
+// The kept ids come from the last Fetch, but the user may push or cancel such a stream
+// afterwards; then nothing of it would be lost, so only streams that are still drafts count.
 // Ids that are no longer in the campaign are skipped: there is no name to show for them.
-function namesOfStreams(campaign: EditorCampaign | null, streamIds: number[]): string[] {
+function namesOfStillDraftStreams(
+  campaign: EditorCampaign | null,
+  streamIds: number[],
+): string[] {
   const names: string[] = [];
   if (campaign === null) {
     return names;
@@ -164,7 +170,9 @@ function namesOfStreams(campaign: EditorCampaign | null, streamIds: number[]): s
   for (const streamId of streamIds) {
     for (const stream of campaign.streams) {
       if (stream.keitaro_stream_id === streamId) {
-        names.push(stream.name);
+        if (stream.is_draft) {
+          names.push(stream.name);
+        }
         break;
       }
     }
