@@ -80,6 +80,7 @@ export interface EditorView {
 
 const FULL_WEIGHT_PERCENT = 100;
 const DIGITS_ONLY = /^\d+$/;
+const KEPT_DRAFTS_NOTICE_CODE = 'draft_streams_kept';
 
 export function parseCampaignId(raw: string | undefined): number | null {
   if (raw === undefined || !DIGITS_ONLY.test(raw)) {
@@ -98,6 +99,11 @@ export function toEditorView(input: EditorViewInput): EditorView {
 
   const notices: string[] = [];
   for (const notice of input.fetchNotices) {
+    // The server's own kept-draft notice asks to publish, cancel or force a fetch; once every
+    // kept draft is published or cancelled it is outdated and points to a button that is gone.
+    if (notice.code === KEPT_DRAFTS_NOTICE_CODE && !hasKeptDrafts) {
+      continue;
+    }
     notices.push(notice.message);
   }
   if (hasKeptDrafts) {

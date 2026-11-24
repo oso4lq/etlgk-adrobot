@@ -346,6 +346,44 @@ describe('toEditorView', () => {
     expect(view.forceFetch.confirmOpen).toBe(false);
   });
 
+  it("hides the server's kept-draft notice once no kept stream is a draft", () => {
+    const keptNotice: ApiNotice = {
+      code: 'draft_streams_kept',
+      message: 'Не обновлены потоки с неопубликованными изменениями: «First»',
+    };
+    const deletedNotice: ApiNotice = {
+      code: 'streams_deleted_in_keitaro',
+      message: 'Потоков больше нет в Keitaro',
+    };
+    const input = {
+      keptDraftStreamIds: [10],
+      fetchNotices: [keptNotice, deletedNotice],
+    };
+    const stillDraft = toEditorView(
+      makeInput({
+        ...input,
+        campaign: makeCampaign([
+          makeStream({ keitaro_stream_id: 10, name: 'First', is_draft: true }),
+        ]),
+      }),
+    );
+    const publishedSince = toEditorView(
+      makeInput({
+        ...input,
+        campaign: makeCampaign([
+          makeStream({ keitaro_stream_id: 10, name: 'First', is_draft: false }),
+        ]),
+      }),
+    );
+
+    expect(stillDraft.notices).toEqual([
+      keptNotice.message,
+      deletedNotice.message,
+      'Черновики сохранены в потоках: First',
+    ]);
+    expect(publishedSince.notices).toEqual([deletedNotice.message]);
+  });
+
   it('disables the forced fetch like Fetch', () => {
     const view = toEditorView(
       makeInput({
