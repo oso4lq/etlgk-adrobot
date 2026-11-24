@@ -194,4 +194,14 @@ describe('Autocomplete', () => {
 
     expect(event.defaultPrevented).toBe(true);
   });
+
+  it('does not open the list when a search finishes after the field lost focus', async () => {
+    type('Al');
+    await pause();
+    inputElement().dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+    host.requests[0].response.next([alpha]);
+    fixture.detectChanges();
+
+    expect(suggestionLabels()).toEqual([]);
+  });
 });

@@ -84,4 +84,39 @@ describe('CreatorStore', () => {
     requests[0].flush(created);
     http.expectOne('/api/created-campaigns').flush([]);
   });
+
+  it('drops the previous result and error when a new submit starts or fails', () => {
+    fillForm();
+    store.submit();
+    http.expectOne('/api/campaigns').flush(created);
+    http.expectOne('/api/created-campaigns').flush([]);
+    expect(store.view().result).not.toBeNull();
+
+    fillForm();
+    store.submit();
+    expect(store.view().result).toBeNull();
+    http
+      .expectOne('/api/campaigns')
+      .flush(
+        { code: 'keitaro_error', message: 'Keitaro недоступен' },
+        { status: 502, statusText: 'Bad Gateway' },
+      );
+
+    expect(store.view().result).toBeNull();
+    expect(store.view().error).toBe('Keitaro недоступен');
+    http.expectOne('/api/created-campaigns').flush([]);
+
+    store.submit();
+    expect(store.view().error).toBeNull();
+    http.expectOne('/api/campaigns').flush(created);
+    http.expectOne('/api/created-campaigns').flush([]);
+  });
+
+  it('does not send a request for a whitespace-only name', () => {
+    store.model.set({ name: '   ', country: 'AU' });
+    store.selectOffer({ id: 18813, label: '18813 — Test offer' });
+    store.submit();
+
+    http.expectNone('/api/campaigns');
+  });
 });

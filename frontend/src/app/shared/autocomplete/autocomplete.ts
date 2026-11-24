@@ -53,6 +53,8 @@ export class Autocomplete {
   // The parent owns the selection but learns about edits only through the output;
   // this mirror lets the component emit null exactly once per edit without waiting for the input to update.
   private chosenOption: AutocompleteOption | null = null;
+  // A search can finish after the user left the field; opening the list then would leave it stuck on screen.
+  private hasFocus = false;
 
   protected readonly suggestions = computed<SuggestionView[]>(() => {
     const hiddenIds = this.hiddenIds();
@@ -94,7 +96,9 @@ export class Autocomplete {
         }
         this.foundOptions.set(options);
         this.activeIndex.set(-1);
-        this.isOpen.set(true);
+        if (this.hasFocus) {
+          this.isOpen.set(true);
+        }
       });
 
     effect(() => {
@@ -116,6 +120,8 @@ export class Autocomplete {
   protected onInput(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
     this.text.set(value);
+    // Typing proves the field has focus even when no focus event was observed.
+    this.hasFocus = true;
     if (this.chosenOption !== null) {
       this.chosenOption = null;
       this.selectionChange.emit(null);
@@ -124,12 +130,14 @@ export class Autocomplete {
   }
 
   protected onFocus(): void {
+    this.hasFocus = true;
     this.queries.next(this.text());
   }
 
   protected onFocusOut(event: FocusEvent): void {
     const container = event.currentTarget as HTMLElement;
     if (!container.contains(event.relatedTarget as Node | null)) {
+      this.hasFocus = false;
       this.isOpen.set(false);
     }
   }

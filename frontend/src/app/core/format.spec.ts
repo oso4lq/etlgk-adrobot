@@ -21,4 +21,8 @@ describe('format', () => {
 
     expect(formatDateTime(iso)).toBe(expected);
   });
+
+  it('returns the raw string for an unparseable date instead of throwing', () => {
+    expect(formatDateTime('not a date')).toBe('not a date');
+  });
 });

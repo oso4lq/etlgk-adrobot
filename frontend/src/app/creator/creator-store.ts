@@ -71,6 +71,9 @@ export class CreatorStore {
       return;
     }
     this.submitting.set(true);
+    // The previous attempt's outcome must not stay on screen next to the new one.
+    this.result.set(null);
+    this.error.set(null);
     this.api
       .createCampaign({
         name: this.model().name.trim(),

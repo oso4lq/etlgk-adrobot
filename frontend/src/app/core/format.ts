@@ -16,5 +16,10 @@ export function toOfferOption(offer: OfferSummary): AutocompleteOption {
 }
 
 export function formatDateTime(iso: string): string {
-  return dateTimeFormat.format(new Date(iso));
+  const date = new Date(iso);
+  // Intl throws RangeError on an invalid date, which would blank the whole page.
+  if (Number.isNaN(date.getTime())) {
+    return iso;
+  }
+  return dateTimeFormat.format(date);
 }
