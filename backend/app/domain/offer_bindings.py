@@ -114,6 +114,8 @@ def pin(bindings: Sequence[OfferBinding], binding: OfferBinding) -> None:
 
 
 def unpin(bindings: Sequence[OfferBinding], binding: OfferBinding) -> None:
+    if not binding.is_pinned:
+        return
     binding.is_pinned = False
     # Without this the "unpin an offer" hint does not lead out of the "sum is not 100"
     # problem: the weights would stay as they were. With sum 100 nothing is touched.
@@ -191,7 +193,13 @@ def stream_notices(bindings: Sequence[OfferBinding]) -> StreamNotices:
         if not has_unpinned or pinned > FULL_WEIGHT:
             advice = "открепите оффер"
         else:
-            advice = "веса пересчитаются при добавлении, удалении или возврате оффера"
+            # Unpinning also recalculates, so it belongs in the hint once something is pinned.
+            if any(slot.is_pinned for slot in active_slots):
+                advice = (
+                    "веса пересчитаются при добавлении, удалении, возврате или откреплении оффера"
+                )
+            else:
+                advice = "веса пересчитаются при добавлении, удалении или возврате оффера"
         problems.append(
             Notice("weights_sum_not_100", f"Сумма весов {total}%, нужно 100% — {advice}")
         )

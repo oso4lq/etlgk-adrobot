@@ -138,7 +138,8 @@ function toStatusMessage(input: EditorViewInput): string | null {
     case 'loading':
       return 'Загрузка…';
     case 'not-fetched':
-      // A failed Fetch explains itself in the error line; the status would repeat it.
+      // A failed Fetch explains itself next to the Fetch button; the not-fetched status beside it
+      // would contradict or duplicate the error.
       if (input.pageError !== null) {
         return null;
       }

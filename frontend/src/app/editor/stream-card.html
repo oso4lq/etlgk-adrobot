@@ -1,7 +1,7 @@
 <section [class]="stream().cssClass">
   <h3>
     {{ stream().title }} <small>{{ stream().idLabel }}</small>
-    <!-- &ngsp; — Angular удаляет пробельные узлы между элементами и блоками, а этот пробел сохраняет -->
+    <!-- &ngsp; — Angular drops whitespace-only text between elements and blocks; this keeps the space -->
     @if (stream().isDraft) {
       &ngsp;<em>черновик</em>
     }
