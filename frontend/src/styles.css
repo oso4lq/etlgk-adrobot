@@ -1,1 +1,28 @@
-/* You can add global styles to this file, and also import other style files */
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  color: #222;
+}
+
+.stream--clean {
+  background: #fff;
+}
+
+.stream--draft {
+  background: #fff3b0;
+}
+
+/* A stream without offers: shown as a plain row, never marked as a draft. */
+.stream--plain {
+  background: #fff;
+}
+
+.offer--archived {
+  color: #888;
+}
+
+.total--off {
+  background: #ffd6d6;
+  font-weight: bold;
+}
